@@ -38,7 +38,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
             this.openTarget = openTarget;
 
             NightCountChoices = new List<int> { 1, 2, 3, 4, 5, 6, 7};
-            nightCount = 7;
+            nightCount = 3;
             StartDate = DateTime.Now.Date;
             SelectedProfileId = profileService.ActiveProfile.Id.ToString();
             ProfileChoices = GetProfileChoices();
