@@ -32,7 +32,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
         public TargetAvailabilityViewVM(IProfileService profileService) : base(profileService) {
             database = new SchedulerDatabaseInteraction();
 
-            NightCountChoices = new List<int> { 1, 2, 3, 5, 7, 10, 14 };
+            NightCountChoices = new List<int> { 1, 2, 3, 4, 5, 6, 7};
             nightCount = 7;
             StartDate = DateTime.Now.Date;
             SelectedProfileId = profileService.ActiveProfile.Id.ToString();
