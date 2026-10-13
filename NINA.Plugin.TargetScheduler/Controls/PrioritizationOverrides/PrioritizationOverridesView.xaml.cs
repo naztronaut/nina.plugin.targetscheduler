@@ -1,10 +1,10 @@
 ﻿using System.Windows.Controls;
 
-namespace NINA.Plugin.TargetScheduler.Controls.Availability {
+namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
 
-    public partial class TargetAvailabilityView : UserControl {
+    public partial class PrioritizationOverridesView : UserControl {
 
-        public TargetAvailabilityView() {
+        public PrioritizationOverridesView() {
             InitializeComponent();
         }
     }

@@ -1,5 +1,5 @@
 ﻿<UserControl
-    x:Class="NINA.Plugin.TargetScheduler.Controls.Availability.TargetAvailabilityView"
+    x:Class="NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides.PrioritizationOverridesView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -59,7 +59,7 @@
                     Margin="15"
                     HorizontalAlignment="Left"
                     FontStyle="Italic"
-                    Text="Shows when each active target could be imaged over the coming nights. Click the checkmark to prioritize a target (through the last night shown; change the date on the row as needed). While prioritized, a target is imaged in preference to any other target whenever it can be imaged; at other times the scheduler falls back to the remaining targets."
+                    Text="Override the scheduler's normal target selection: while a target is prioritized, it is imaged in preference to any other target whenever it can be imaged; at other times the scheduler falls back to the remaining targets. Click the checkmark to prioritize a target (through the last night shown; change the date on the row as needed). The grid shows when each active target can be imaged over the coming nights."
                     TextWrapping="Wrap" />
 
                 <Grid

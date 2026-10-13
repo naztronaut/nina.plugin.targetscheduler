@@ -21,19 +21,19 @@ using System.Windows.Input;
 
 using RelayCommand = CommunityToolkit.Mvvm.Input.RelayCommand;
 
-namespace NINA.Plugin.TargetScheduler.Controls.Availability {
+namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
 
     /// <summary>
-    /// Shows when each active target can be imaged over the coming nights and lets the user select targets to
-    /// prioritize (with a per-target expiration date).
+    /// Target Prioritization Overrides: lets the user prioritize targets (with a per-target expiration date) over the
+    /// scheduler's normal scoring, showing when each active target can be imaged over the coming nights.
     /// </summary>
-    public class TargetAvailabilityViewVM : BaseVM {
+    public class PrioritizationOverridesViewVM : BaseVM {
         private SchedulerDatabaseInteraction database;
         private readonly Action<int> openTarget;
 
         /// <param name="profileService"></param>
         /// <param name="openTarget">opens the target (by database ID) in Target Management</param>
-        public TargetAvailabilityViewVM(IProfileService profileService, Action<int> openTarget) : base(profileService) {
+        public PrioritizationOverridesViewVM(IProfileService profileService, Action<int> openTarget) : base(profileService) {
             database = new SchedulerDatabaseInteraction();
             this.openTarget = openTarget;
 
@@ -128,9 +128,9 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
             }
         }
 
-        private List<TargetAvailabilityRow> rows = new List<TargetAvailabilityRow>();
+        private List<PrioritizationOverrideRow> rows = new List<PrioritizationOverrideRow>();
 
-        public List<TargetAvailabilityRow> Rows {
+        public List<PrioritizationOverrideRow> Rows {
             get => rows;
             set {
                 rows = value;
@@ -214,7 +214,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
                 DefaultPrioritizeThrough = firstNight.AddDays(nights - 1);
                 NightHeaders = Enumerable.Range(0, nights).Select(n => NightHeader(firstNight.AddDays(n))).ToList();
                 Rows = availability
-                    .Select(a => new TargetAvailabilityRow(this, a, priorities.TryGetValue(a.Target.DatabaseId, out DateTime? d) ? d : null))
+                    .Select(a => new PrioritizationOverrideRow(this, a, priorities.TryGetValue(a.Target.DatabaseId, out DateTime? d) ? d : null))
                     .OrderBy(r => r.ProjectName)
                     .ThenBy(r => r.TargetName)
                     .ToList();
@@ -230,12 +230,12 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
         }
 
         private void Save() {
-            List<TargetAvailabilityRow> changed = Rows.Where(r => r.IsChanged).ToList();
+            List<PrioritizationOverrideRow> changed = Rows.Where(r => r.IsChanged).ToList();
             if (changed.Count == 0) { return; }
 
             int failed = 0;
             using (var context = database.GetContext()) {
-                foreach (TargetAvailabilityRow row in changed) {
+                foreach (PrioritizationOverrideRow row in changed) {
                     if (context.SetTargetPriority(row.TargetId, row.PrioritizeThrough)) {
                         row.AcceptChange();
                     } else {
@@ -257,7 +257,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
         }
 
         private void ClearResults() {
-            Rows = new List<TargetAvailabilityRow>();
+            Rows = new List<PrioritizationOverrideRow>();
             NightHeaders = new List<string>();
             CoverageCells = new List<AvailabilityCell>();
             StatusText = null;
@@ -283,7 +283,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
                 bool[] covered = new bool[times.Length];
                 bool anyPrioritized = false;
 
-                foreach (TargetAvailabilityRow row in Rows) {
+                foreach (PrioritizationOverrideRow row in Rows) {
                     DateTime? expiration = Target.GetPriorityExpiration(row.PrioritizeThrough);
                     if (expiration == null || expiration <= times[0]) { continue; }
 
@@ -352,8 +352,8 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
         }
     }
 
-    public class TargetAvailabilityRow : BaseINPC {
-        private readonly TargetAvailabilityViewVM parent;
+    public class PrioritizationOverrideRow : BaseINPC {
+        private readonly PrioritizationOverridesViewVM parent;
 
         public TargetAvailability Availability { get; }
         public int TargetId { get; }
@@ -364,7 +364,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
 
         private DateTime? originalPrioritizeThrough;
 
-        public TargetAvailabilityRow(TargetAvailabilityViewVM parent, TargetAvailability availability, DateTime? prioritizeThrough) {
+        public PrioritizationOverrideRow(PrioritizationOverridesViewVM parent, TargetAvailability availability, DateTime? prioritizeThrough) {
             this.parent = parent;
             Availability = availability;
             TargetId = availability.Target.DatabaseId;
@@ -443,9 +443,9 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
                 return new AvailabilityCell("—", $"Not imagable this night: {reason}", false);
             }
 
-            string intervals = TargetAvailabilityViewVM.FormatIntervals(night.Intervals);
+            string intervals = PrioritizationOverridesViewVM.FormatIntervals(night.Intervals);
             string moon = night.MoonSeparation == null ? "moon down" : $"moon {night.MoonSeparation:0}°";
-            StringBuilder tip = new StringBuilder($"Imagable {intervals.Replace("\n", ", ")} ({TargetAvailabilityViewVM.FormatMinutes(night.Minutes)})");
+            StringBuilder tip = new StringBuilder($"Imagable {intervals.Replace("\n", ", ")} ({PrioritizationOverridesViewVM.FormatMinutes(night.Minutes)})");
             tip.Append(night.MoonSeparation == null
                 ? ".  The moon is below the horizon while the target is imagable"
                 : $".  Closest moon approach while the moon is up: {night.MoonSeparation:0}°");
@@ -453,7 +453,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
                 tip.Append($".  Otherwise mostly unavailable due to: {night.MainUnavailableReason}");
             }
 
-            return new AvailabilityCell($"{intervals}\n{TargetAvailabilityViewVM.FormatMinutes(night.Minutes)} · {moon}", tip.ToString(), true);
+            return new AvailabilityCell($"{intervals}\n{PrioritizationOverridesViewVM.FormatMinutes(night.Minutes)} · {moon}", tip.ToString(), true);
         }
     }
 

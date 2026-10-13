@@ -5,7 +5,7 @@ using NINA.Equipment.Interfaces;
 using NINA.Plugin.Interfaces;
 using NINA.Plugin.TargetScheduler.API;
 using NINA.Plugin.TargetScheduler.Controls.AcquiredImages;
-using NINA.Plugin.TargetScheduler.Controls.Availability;
+using NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides;
 using NINA.Plugin.TargetScheduler.Controls.DatabaseManager;
 using NINA.Plugin.TargetScheduler.Controls.PlanPreview;
 using NINA.Plugin.TargetScheduler.Controls.Reporting;
@@ -191,24 +191,24 @@ namespace NINA.Plugin.TargetScheduler {
             }
         }
 
-        private TargetAvailabilityViewVM targetAvailabilityViewVM;
+        private PrioritizationOverridesViewVM prioritizationOverridesViewVM;
 
-        public TargetAvailabilityViewVM TargetAvailabilityViewVM {
-            get => targetAvailabilityViewVM;
+        public PrioritizationOverridesViewVM PrioritizationOverridesViewVM {
+            get => prioritizationOverridesViewVM;
             set {
-                targetAvailabilityViewVM = value;
-                RaisePropertyChanged(nameof(TargetAvailabilityViewVM));
+                prioritizationOverridesViewVM = value;
+                RaisePropertyChanged(nameof(PrioritizationOverridesViewVM));
             }
         }
 
-        private bool targetAvailabilityIsExpanded = false;
+        private bool prioritizationOverridesIsExpanded = false;
 
-        public bool TargetAvailabilityIsExpanded {
-            get { return targetAvailabilityIsExpanded; }
+        public bool PrioritizationOverridesIsExpanded {
+            get { return prioritizationOverridesIsExpanded; }
             set {
-                targetAvailabilityIsExpanded = value;
-                if (value && TargetAvailabilityViewVM == null) {
-                    TargetAvailabilityViewVM = new TargetAvailabilityViewVM(profileService, OpenInTargetManagement);
+                prioritizationOverridesIsExpanded = value;
+                if (value && PrioritizationOverridesViewVM == null) {
+                    PrioritizationOverridesViewVM = new PrioritizationOverridesViewVM(profileService, OpenInTargetManagement);
                 }
             }
         }
