@@ -118,6 +118,32 @@
                                     Visibility="{Binding ShowDisplayAll, Converter={StaticResource InverseBooleanToVisibilityCollapsedConverter}}" />
                             </Grid>
                         </Button>
+
+                        <Button
+                            Width="25"
+                            Height="25"
+                            VerticalAlignment="Center"
+                            Command="{Binding SwitchHideArchivedCommand}"
+                            IsEnabled="{Binding ParentVM.TreeViewEabled}"
+                            Style="{StaticResource BackgroundButton}"
+                            ToolTip="Toggle: show or hide archived projects"
+                            ToolTipService.ShowOnDisabled="True"
+                            Visibility="{Binding ShowActiveInactive, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}">
+                            <Grid>
+                                <Path
+                                    Margin="5"
+                                    Data="{StaticResource SS_ArchiveSVG}"
+                                    Fill="{StaticResource ButtonForegroundBrush}"
+                                    Stretch="Uniform"
+                                    Visibility="{Binding HideArchived, Converter={StaticResource InverseBooleanToVisibilityCollapsedConverter}}" />
+                                <Path
+                                    Margin="5"
+                                    Data="{StaticResource SS_ArchiveSVG}"
+                                    Fill="Green"
+                                    Stretch="Uniform"
+                                    Visibility="{Binding HideArchived, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}" />
+                            </Grid>
+                        </Button>
                         <Button
                             Width="25"
                             Height="25"

@@ -41,6 +41,8 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
         private TreeDisplayMode SelectedDisplayMode;
         private bool SelectedColorizeMode;
 
+        public bool HideArchived { get; private set; }
+
         public DatabaseManagerVM(IProfileService profileService,
             IApplicationMediator applicationMediator,
             IFramingAssistantVM framingAssistantVM,
@@ -357,6 +359,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
                 RootProjectsList = LoadProjectsTree();
                 TreeDataItem.VisitAll(RootProjectsList[0], i => { i.IsExpanded = false; });
                 SelectedDisplayMode = TreeDisplayMode.DisplayAll;
+                if (HideArchived) { ApplyTreeFilters(); }
                 return RootProjectsList;
             }
 
@@ -569,6 +572,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
                     }
 
                     SetTreeColorizeMode(SelectedColorizeMode);
+                    if (HideArchived) { ApplyTreeFilters(); }
                     DitherManagerCache.Remove(project.Targets);
                 } else {
                     Notification.ShowError("Failed to save Scheduler Project (see log for details)");
@@ -1047,26 +1051,39 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
 
         internal void SetTreeDisplayMode(TreeDisplayMode displayMode) {
             SelectedDisplayMode = displayMode;
+            ApplyTreeFilters();
+        }
 
-            if (SelectedDisplayMode == TreeDisplayMode.DisplayAll) {
-                TreeDataItem.VisitAll(RootProjectsList[0], item => { item.Visibility = Visibility.Visible; });
-                return;
-            }
+        internal void SetTreeHideArchived(bool hideArchived) {
+            HideArchived = hideArchived;
+            ApplyTreeFilters();
+        }
 
+        private void ApplyTreeFilters() {
+            bool activeOnly = SelectedDisplayMode == TreeDisplayMode.DisplayActiveOnly;
             ExposureCompletionHelper helper = null;
 
             TreeDataItem.VisitAll(RootProjectsList[0], item => {
                 switch (item.Type) {
                     case TreeDataType.Project:
                         Project project = item.Data as Project;
-                        helper = GetExposureCompletionHelper(item.TreeParent.Data as ProfileMeta, project);
-                        item.Visibility = ProjectActive(helper, project) ? Visibility.Visible : Visibility.Collapsed;
+                        bool visible = true;
+                        if (activeOnly) {
+                            helper = GetExposureCompletionHelper(item.TreeParent.Data as ProfileMeta, project);
+                            visible = ProjectActive(helper, project);
+                        }
+
+                        if (HideArchived && project.State == ProjectState.Archived) {
+                            visible = false;
+                        }
+
+                        item.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
                         break;
 
                     case TreeDataType.Target:
                         Target target = item.Data as Target;
                         project = item.TreeParent.Data as Project;
-                        item.Visibility = TargetActive(helper, project, target) ? Visibility.Visible : Visibility.Collapsed;
+                        item.Visibility = !activeOnly || TargetActive(helper, project, target) ? Visibility.Visible : Visibility.Collapsed;
                         break;
                 }
             });

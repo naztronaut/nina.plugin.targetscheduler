@@ -21,6 +21,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
             CollapseAllCommand = new RelayCommand(CollapseAll);
             SwitchDisplayModeCommand = new RelayCommand(SwitchDisplayMode);
             SwitchColorizeModeCommand = new RelayCommand(SwitchColorizeMode);
+            SwitchHideArchivedCommand = new RelayCommand(SwitchHideArchived);
             RefreshCommand = new RelayCommand(Refresh);
         }
 
@@ -43,6 +44,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
         public ICommand CollapseAllCommand { get; private set; }
         public ICommand SwitchDisplayModeCommand { get; private set; }
         public ICommand SwitchColorizeModeCommand { get; private set; }
+        public ICommand SwitchHideArchivedCommand { get; private set; }
         public ICommand RefreshCommand { get; private set; }
 
         private void ExpandAll() {
@@ -92,6 +94,14 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
         private void SwitchColorizeMode() {
             ColorizeProjectsTargets = ColorizeProjectsTargets ? false : true;
             ParentVM.SetTreeColorizeMode(ColorizeProjectsTargets);
+        }
+
+        // Held by the parent VM since this VM is recreated whenever the tree is re-bound
+        public bool HideArchived => ParentVM.HideArchived;
+
+        private void SwitchHideArchived() {
+            ParentVM.SetTreeHideArchived(!ParentVM.HideArchived);
+            RaisePropertyChanged(nameof(HideArchived));
         }
 
         public void Refresh() {

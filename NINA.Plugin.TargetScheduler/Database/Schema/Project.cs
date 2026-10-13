@@ -16,7 +16,7 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
 
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ProjectState {
-        Draft, Active, Inactive, Closed
+        Draft, Active, Inactive, Closed, Archived
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
