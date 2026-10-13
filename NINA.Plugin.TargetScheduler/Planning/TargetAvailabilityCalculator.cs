@@ -20,6 +20,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
     /// </summary>
     public class TargetAvailabilityCalculator {
         public const int DEFAULT_SAMPLE_MINUTES = 5;
+        private const int MOON_SAMPLE_STRIDE = 6;
 
         private readonly IProfile profile;
         private readonly ProfilePreference profilePreference;
@@ -108,9 +109,13 @@ namespace NINA.Plugin.TargetScheduler.Planning {
                     }
                 }
 
+                double?[] moonAltitudes = new double?[sampleTimes.Count];
                 foreach (ITarget target in targets) {
+                    token.ThrowIfCancellationRequested();
                     string mainReason = reasons[target].Count > 0 ? reasons[target].OrderByDescending(r => r.Value).First().Key : null;
-                    byTarget[target].Nights.Add(new NightAvailability(nightOf, sampleTimes.ToArray(), ready[target], sampleMinutes, dawn.Value, mainReason));
+                    NightAvailability night = new NightAvailability(nightOf, sampleTimes.ToArray(), ready[target], sampleMinutes, dawn.Value, mainReason);
+                    night.MoonSeparation = GetClosestMoonSeparation(target, sampleTimes, ready[target], moonAltitudes);
+                    byTarget[target].Nights.Add(night);
                 }
             }
 
@@ -138,6 +143,31 @@ namespace NINA.Plugin.TargetScheduler.Planning {
             }
 
             return intervals;
+        }
+
+        /// <summary>
+        /// Find the closest approach of the moon to the target, while the moon is above the horizon, over the times the
+        /// target is imagable.  Only every MOON_SAMPLE_STRIDE-th imagable sample (plus the last) is checked since the
+        /// separation changes slowly.  Returns null if the moon is down throughout (or the target is never imagable).
+        /// Moon altitudes are cached across targets since they only depend on time.
+        /// </summary>
+        private double? GetClosestMoonSeparation(ITarget target, List<DateTime> sampleTimes, bool[] ready, double?[] moonAltitudes) {
+            List<int> readyIndexes = Enumerable.Range(0, ready.Length).Where(i => ready[i]).ToList();
+            if (readyIndexes.Count == 0) { return null; }
+
+            List<int> checkIndexes = readyIndexes.Where((_, n) => n % MOON_SAMPLE_STRIDE == 0).ToList();
+            if (checkIndexes.Last() != readyIndexes.Last()) { checkIndexes.Add(readyIndexes.Last()); }
+
+            double? closest = null;
+            foreach (int i in checkIndexes) {
+                moonAltitudes[i] ??= AstroUtil.GetMoonAltitude(sampleTimes[i], observerInfo);
+                if (moonAltitudes[i] <= 0) { continue; }
+
+                double separation = AstrometryUtils.GetMoonSeparationAngle(observerInfo, sampleTimes[i], target.Coordinates);
+                closest = closest == null ? separation : Math.Min(closest.Value, separation);
+            }
+
+            return closest;
         }
 
         private static void ResetRejections(List<IProject> projects) {
@@ -182,6 +212,12 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         public string MainUnavailableReason { get; }
 
         public List<TimeInterval> Intervals { get; }
+
+        /// <summary>
+        /// Closest moon-target separation (degrees) while the moon is up during the imagable times, or null if the moon
+        /// is down throughout (or the target isn't imagable).
+        /// </summary>
+        public double? MoonSeparation { get; internal set; }
 
         public double Minutes => Intervals.Sum(i => i.Duration) / 60.0;
 

@@ -208,9 +208,18 @@ namespace NINA.Plugin.TargetScheduler {
             set {
                 targetAvailabilityIsExpanded = value;
                 if (value && TargetAvailabilityViewVM == null) {
-                    TargetAvailabilityViewVM = new TargetAvailabilityViewVM(profileService);
+                    TargetAvailabilityViewVM = new TargetAvailabilityViewVM(profileService, OpenInTargetManagement);
                 }
             }
+        }
+
+        private void OpenInTargetManagement(int targetId) {
+            if (!DatabaseManagerIsExpanded) {
+                DatabaseManagerIsExpanded = true;
+                RaisePropertyChanged(nameof(DatabaseManagerIsExpanded));
+            }
+
+            DatabaseManagerVM.NavigateToTarget(targetId);
         }
 
         private bool reportingManagerIsExpanded = false;

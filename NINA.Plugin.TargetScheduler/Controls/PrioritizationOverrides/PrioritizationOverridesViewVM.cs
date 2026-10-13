@@ -2,6 +2,7 @@
 using NINA.Core.MyMessageBox;
 using NINA.Core.Utility;
 using NINA.Core.Utility.Notification;
+using NINA.Plugin.TargetScheduler.Astrometry;
 using NINA.Plugin.TargetScheduler.Controls.Util;
 using NINA.Plugin.TargetScheduler.Database;
 using NINA.Plugin.TargetScheduler.Database.Schema;
@@ -28,9 +29,13 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
     /// </summary>
     public class TargetAvailabilityViewVM : BaseVM {
         private SchedulerDatabaseInteraction database;
+        private readonly Action<int> openTarget;
 
-        public TargetAvailabilityViewVM(IProfileService profileService) : base(profileService) {
+        /// <param name="profileService"></param>
+        /// <param name="openTarget">opens the target (by database ID) in Target Management</param>
+        public TargetAvailabilityViewVM(IProfileService profileService, Action<int> openTarget) : base(profileService) {
             database = new SchedulerDatabaseInteraction();
+            this.openTarget = openTarget;
 
             NightCountChoices = new List<int> { 1, 2, 3, 4, 5, 6, 7};
             nightCount = 7;
@@ -207,7 +212,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
                 }
 
                 DefaultPrioritizeThrough = firstNight.AddDays(nights - 1);
-                NightHeaders = Enumerable.Range(0, nights).Select(n => firstNight.AddDays(n).ToString("ddd MMM d")).ToList();
+                NightHeaders = Enumerable.Range(0, nights).Select(n => NightHeader(firstNight.AddDays(n))).ToList();
                 Rows = availability
                     .Select(a => new TargetAvailabilityRow(this, a, priorities.TryGetValue(a.Target.DatabaseId, out DateTime? d) ? d : null))
                     .OrderBy(r => r.ProjectName)
@@ -306,6 +311,18 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
             return cells;
         }
 
+        internal void OpenTarget(int targetId) {
+            openTarget?.Invoke(targetId);
+        }
+
+        /// <summary>
+        /// Night date plus moon illumination at the midnight following the start of the night.
+        /// </summary>
+        private static string NightHeader(DateTime nightOf) {
+            double illumination = AstrometryUtils.GetMoonIllumination(nightOf.AddDays(1));
+            return $"{nightOf:ddd MMM d}\nmoon {illumination * 100:0}%";
+        }
+
         internal static string FormatIntervals(List<TimeInterval> intervals) {
             return string.Join("\n", intervals.Select(i => $"{i.StartTime:t}–{i.EndTime:t}"));
         }
@@ -361,9 +378,11 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
             lastPrioritizeThrough = originalPrioritizeThrough;
 
             TogglePriorityCommand = new RelayCommand(() => IsPrioritized = !IsPrioritized);
+            OpenTargetCommand = new RelayCommand(() => parent.OpenTarget(TargetId));
         }
 
         public ICommand TogglePriorityCommand { get; private set; }
+        public ICommand OpenTargetCommand { get; private set; }
 
         private DateTime? prioritizeThrough;
 
@@ -425,12 +444,16 @@ namespace NINA.Plugin.TargetScheduler.Controls.Availability {
             }
 
             string intervals = TargetAvailabilityViewVM.FormatIntervals(night.Intervals);
+            string moon = night.MoonSeparation == null ? "moon down" : $"moon {night.MoonSeparation:0}°";
             StringBuilder tip = new StringBuilder($"Imagable {intervals.Replace("\n", ", ")} ({TargetAvailabilityViewVM.FormatMinutes(night.Minutes)})");
+            tip.Append(night.MoonSeparation == null
+                ? ".  The moon is below the horizon while the target is imagable"
+                : $".  Closest moon approach while the moon is up: {night.MoonSeparation:0}°");
             if (night.MainUnavailableReason != null) {
                 tip.Append($".  Otherwise mostly unavailable due to: {night.MainUnavailableReason}");
             }
 
-            return new AvailabilityCell($"{intervals}\n{TargetAvailabilityViewVM.FormatMinutes(night.Minutes)}", tip.ToString(), true);
+            return new AvailabilityCell($"{intervals}\n{TargetAvailabilityViewVM.FormatMinutes(night.Minutes)} · {moon}", tip.ToString(), true);
         }
     }
 

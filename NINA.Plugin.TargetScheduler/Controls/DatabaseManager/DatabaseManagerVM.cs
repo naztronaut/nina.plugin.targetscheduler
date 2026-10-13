@@ -23,6 +23,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 using RelayCommandParam = CommunityToolkit.Mvvm.Input.RelayCommand<object>;
 
@@ -518,6 +519,33 @@ namespace NINA.Plugin.TargetScheduler.Controls.DatabaseManager {
             }
 
             item.IsSelected = true;
+        }
+
+        /// <summary>
+        /// Select a target (by database ID) in the projects tree, expanding its parents and scrolling it into view.
+        /// </summary>
+        public void NavigateToTarget(int targetId) {
+            if (!TreeViewEabled) {
+                MyMessageBox.Show("Save or cancel the current edit in Target Management first.", "Oops");
+                return;
+            }
+
+            TreeDataItem targetItem = null;
+            TreeDataItem.VisitAll(RootProjectsList[0], item => {
+                if (targetItem == null && item.Type == TreeDataType.Target && (item.Data as Target)?.Id == targetId) {
+                    targetItem = item;
+                }
+            });
+
+            if (targetItem == null) {
+                Notification.ShowWarning("Target not found in Target Management - try refreshing the Projects tree");
+                return;
+            }
+
+            NavigateTo(targetItem);
+
+            // Wait for the tree to lay out (it may have just been expanded) before scrolling
+            targetItem.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => targetItem.BringIntoView()));
         }
 
         public void ViewProfilePreferences(ProfileMeta profile) {

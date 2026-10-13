@@ -17,7 +17,7 @@
             <!--  Night cell: imagable time span(s) and total time, dimmed when not imagable  -->
             <DataTemplate x:Key="AvailabilityCellTemplate">
                 <Border
-                    Width="120"
+                    Width="135"
                     Padding="4,2,4,2"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="1,0,0,0"
@@ -185,7 +185,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock
-                                    Width="120"
+                                    Width="135"
                                     Padding="5,0,0,0"
                                     FontWeight="Bold"
                                     Text="{Binding}" />
@@ -257,17 +257,33 @@
                                                 Visibility="{Binding IsPrioritized, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}" />
                                         </Grid>
                                     </Button>
-                                    <StackPanel
-                                        Width="220"
-                                        VerticalAlignment="Center">
-                                        <TextBlock
-                                            FontWeight="Bold"
-                                            Text="{Binding TargetName}"
-                                            TextTrimming="CharacterEllipsis" />
-                                        <TextBlock
-                                            Opacity="0.7"
-                                            Text="{Binding ProjectName}"
-                                            TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Width="220" Orientation="Horizontal">
+                                        <StackPanel
+                                            Width="192"
+                                            VerticalAlignment="Center">
+                                            <TextBlock
+                                                FontWeight="Bold"
+                                                Text="{Binding TargetName}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                Opacity="0.7"
+                                                Text="{Binding ProjectName}"
+                                                TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <Button
+                                            Width="22"
+                                            Height="22"
+                                            Margin="2,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding OpenTargetCommand}"
+                                            Style="{StaticResource BackgroundButton}"
+                                            ToolTip="Open this target in Target Management">
+                                            <Path
+                                                Margin="5"
+                                                Data="{StaticResource SS_ExternalLinkSVG}"
+                                                Fill="{StaticResource ButtonForegroundBrush}"
+                                                Stretch="Uniform" />
+                                        </Button>
                                     </StackPanel>
                                     <TextBlock
                                         Width="60"
