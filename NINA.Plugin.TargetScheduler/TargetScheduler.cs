@@ -5,6 +5,7 @@ using NINA.Equipment.Interfaces;
 using NINA.Plugin.Interfaces;
 using NINA.Plugin.TargetScheduler.API;
 using NINA.Plugin.TargetScheduler.Controls.AcquiredImages;
+using NINA.Plugin.TargetScheduler.Controls.Availability;
 using NINA.Plugin.TargetScheduler.Controls.DatabaseManager;
 using NINA.Plugin.TargetScheduler.Controls.PlanPreview;
 using NINA.Plugin.TargetScheduler.Controls.Reporting;
@@ -186,6 +187,28 @@ namespace NINA.Plugin.TargetScheduler {
                 planPreviewIsExpanded = value;
                 if (value && PlanPreviewerViewVM == null) {
                     PlanPreviewerViewVM = new PlanPreviewerViewVM(profileService);
+                }
+            }
+        }
+
+        private TargetAvailabilityViewVM targetAvailabilityViewVM;
+
+        public TargetAvailabilityViewVM TargetAvailabilityViewVM {
+            get => targetAvailabilityViewVM;
+            set {
+                targetAvailabilityViewVM = value;
+                RaisePropertyChanged(nameof(TargetAvailabilityViewVM));
+            }
+        }
+
+        private bool targetAvailabilityIsExpanded = false;
+
+        public bool TargetAvailabilityIsExpanded {
+            get { return targetAvailabilityIsExpanded; }
+            set {
+                targetAvailabilityIsExpanded = value;
+                if (value && TargetAvailabilityViewVM == null) {
+                    TargetAvailabilityViewVM = new TargetAvailabilityViewVM(profileService);
                 }
             }
         }

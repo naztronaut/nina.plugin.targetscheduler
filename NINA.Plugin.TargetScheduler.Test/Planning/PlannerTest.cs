@@ -819,6 +819,82 @@ namespace NINA.Plugin.TargetScheduler.Test.Planning {
             target.StartTime.Should().Be(atTime.AddHours(1));
         }
 
+        [Test]
+        public void testApplyTargetPriorityNonePrioritized() {
+            DateTime atTime = new DateTime(2024, 12, 1, 20, 0, 0);
+            ITarget t1 = PlanMocks.GetMockPlanTarget("T1", TestData.M31).Object;
+            ITarget t2 = PlanMocks.GetMockPlanTarget("T2", TestData.M42).Object;
+            List<ITarget> readyTargets = new List<ITarget> { t1, t2 };
+
+            List<ITarget> result = GetPriorityPlanner(atTime).ApplyTargetPriority(readyTargets, ProjectsFor(t1, t2));
+            result.Should().BeEquivalentTo(new List<ITarget> { t1, t2 });
+            t1.Rejected.Should().BeFalse();
+            t2.Rejected.Should().BeFalse();
+        }
+
+        [Test]
+        public void testApplyTargetPriorityPrioritizedReady() {
+            DateTime atTime = new DateTime(2024, 12, 1, 20, 0, 0);
+            ITarget t1 = PlanMocks.GetMockPlanTarget("T1", TestData.M31).Object;
+            ITarget t2 = PlanMocks.GetMockPlanTarget("T2", TestData.M42).Object;
+            ITarget t3 = PlanMocks.GetMockPlanTarget("T3", TestData.M42).Object;
+            t2.PriorityUntil = atTime.AddDays(3);
+            List<ITarget> readyTargets = new List<ITarget> { t1, t2, t3 };
+
+            List<ITarget> result = GetPriorityPlanner(atTime).ApplyTargetPriority(readyTargets, ProjectsFor(t1, t2, t3));
+            result.Count.Should().Be(1);
+            (result[0] == t2).Should().BeTrue();
+            t1.Rejected.Should().BeTrue();
+            t1.RejectedReason.Should().Be(Reasons.TargetNotPrioritized);
+            t3.RejectedReason.Should().Be(Reasons.TargetNotPrioritized);
+            t2.Rejected.Should().BeFalse();
+        }
+
+        [Test]
+        public void testApplyTargetPriorityExpired() {
+            DateTime atTime = new DateTime(2024, 12, 1, 20, 0, 0);
+            ITarget t1 = PlanMocks.GetMockPlanTarget("T1", TestData.M31).Object;
+            ITarget t2 = PlanMocks.GetMockPlanTarget("T2", TestData.M42).Object;
+            t2.PriorityUntil = atTime.AddMinutes(-1);
+            List<ITarget> readyTargets = new List<ITarget> { t1, t2 };
+
+            List<ITarget> result = GetPriorityPlanner(atTime).ApplyTargetPriority(readyTargets, ProjectsFor(t1, t2));
+            result.Count.Should().Be(2);
+            t1.Rejected.Should().BeFalse();
+        }
+
+        [Test]
+        public void testApplyTargetPriorityFallback() {
+            DateTime atTime = new DateTime(2024, 12, 1, 20, 0, 0);
+            ITarget t1 = PlanMocks.GetMockPlanTarget("T1", TestData.M31).Object;
+            ITarget t2 = PlanMocks.GetMockPlanTarget("T2", TestData.M42).Object;
+
+            // Prioritized target is not ready (rejected for moon avoidance) so fall back to the normal target
+            t2.PriorityUntil = atTime.AddDays(3);
+            t2.Rejected = true;
+            t2.RejectedReason = Reasons.TargetMoonAvoidance;
+            List<ITarget> readyTargets = new List<ITarget> { t1 };
+
+            List<ITarget> result = GetPriorityPlanner(atTime).ApplyTargetPriority(readyTargets, ProjectsFor(t1, t2));
+            result.Count.Should().Be(1);
+            (result[0] == t1).Should().BeTrue();
+            t1.Rejected.Should().BeFalse();
+        }
+
+        private Planner GetPriorityPlanner(DateTime atTime) {
+            IProfile profile = PlanMocks.GetMockProfileService(TestData.Pittsboro_NC).Object.ActiveProfile;
+            return new Planner(atTime, profile, GetPrefs(), PlanMocks.GetWeatherDataMediator(false, 0), false, true);
+        }
+
+        private List<IProject> ProjectsFor(params ITarget[] targets) {
+            Mock<IProject> pp = PlanMocks.GetMockPlanProject("pp1", ProjectState.Active);
+            foreach (ITarget target in targets) {
+                pp.Object.Targets.Add(target);
+            }
+
+            return PlanMocks.ProjectsList(pp.Object);
+        }
+
         private ProfilePreference GetPrefs(string profileId = "abcd-1234") {
             return new ProfilePreference(profileId);
         }

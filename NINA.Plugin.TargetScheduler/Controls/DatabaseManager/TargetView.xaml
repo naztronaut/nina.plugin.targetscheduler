@@ -96,6 +96,7 @@
                 <RowDefinition MinHeight="25" />
                 <RowDefinition MinHeight="25" />
                 <RowDefinition MinHeight="25" />
+                <RowDefinition MinHeight="25" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0"
@@ -344,6 +345,25 @@
                        Grid.Column="1"
                        MaxHeight="20"
                        Text="{Binding TargetProxy.Target.ROI, Converter={StaticResource PercentDisplayConverter}}"
+                       Visibility="{Binding ShowEditView, Converter={StaticResource InverseBooleanToVisibilityCollapsedConverter}}" />
+
+            <TextBlock Grid.Row="5"
+                       Grid.Column="0"
+                       VerticalAlignment="Center"
+                       FontWeight="Bold"
+                       Text="Prioritize Through"
+                       ToolTip="While prioritized (through the night starting on this date), this target is imaged in preference to any non-prioritized target whenever it is imagable.  Clear the date to turn off." />
+            <DatePicker Grid.Row="5"
+                        Grid.Column="1"
+                        Width="180"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        SelectedDate="{Binding TargetProxy.Target.PrioritizeThrough, Mode=TwoWay}"
+                        Visibility="{Binding ShowEditView, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}" />
+            <TextBlock Grid.Row="5"
+                       Grid.Column="1"
+                       MaxHeight="20"
+                       Text="{Binding TargetProxy.Target.PrioritizeThrough, StringFormat=d, TargetNullValue=Off}"
                        Visibility="{Binding ShowEditView, Converter={StaticResource InverseBooleanToVisibilityCollapsedConverter}}" />
         </Grid>
 

@@ -26,6 +26,7 @@ namespace NINA.Plugin.TargetScheduler.Planning.Entities {
         public List<IExposure> CompletedExposurePlans { get; set; }
         public IExposureSelector ExposureSelector { get; set; }
         public IProject Project { get; set; }
+        public DateTime? PriorityUntil { get; set; }
 
         public bool Rejected { get; set; }
         public string RejectedReason { get; set; }
@@ -48,6 +49,7 @@ namespace NINA.Plugin.TargetScheduler.Planning.Entities {
             this.Epoch = target.Epoch;
             this.Rotation = target.Rotation;
             this.ROI = target.ROI;
+            this.PriorityUntil = Target.GetPriorityExpiration(target.PrioritizeThrough);
             this.IsPreview = false;
             this.Project = planProject;
             this.Rejected = false;

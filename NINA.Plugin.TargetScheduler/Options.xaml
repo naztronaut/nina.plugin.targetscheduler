@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ai="clr-namespace:NINA.Plugin.TargetScheduler.Controls.AcquiredImages"
+    xmlns:av="clr-namespace:NINA.Plugin.TargetScheduler.Controls.Availability"
     xmlns:dm="clr-namespace:NINA.Plugin.TargetScheduler.Controls.DatabaseManager"
     xmlns:pp="clr-namespace:NINA.Plugin.TargetScheduler.Controls.PlanPreview"
     xmlns:rp="clr-namespace:NINA.Plugin.TargetScheduler.Controls.Reporting">
@@ -42,6 +43,20 @@
                     </StackPanel>
                 </Expander.Header>
                 <pp:PlanPreviewerView DataContext="{Binding PlanPreviewerViewVM}" />
+            </Expander>
+
+            <Expander
+                Margin="0,0,0,10"
+                ExpandDirection="Down"
+                IsExpanded="{Binding TargetAvailabilityIsExpanded}">
+                <Expander.Header>
+                    <TextBlock
+                        FontSize="14"
+                        FontWeight="Bold"
+                        Text="Target Availability"
+                        ToolTip="See when targets can be imaged over the coming nights and select targets to prioritize" />
+                </Expander.Header>
+                <av:TargetAvailabilityView DataContext="{Binding TargetAvailabilityViewVM}" />
             </Expander>
 
             <Expander

@@ -3,6 +3,7 @@ using NINA.Astrometry;
 using NINA.Plugin.TargetScheduler.Database.Schema;
 using NINA.Plugin.TargetScheduler.Test.Util;
 using NUnit.Framework;
+using System;
 
 namespace NINA.Plugin.TargetScheduler.Test.Database.Schema {
 
@@ -21,6 +22,23 @@ namespace NINA.Plugin.TargetScheduler.Test.Database.Schema {
             sut.ROI.Should().Be(100);
             sut.ExposurePlans.Count.Should().Be(0);
             sut.OverrideExposureOrders.Count.Should().Be(0);
+        }
+
+        [Test]
+        public void TestPrioritizeThrough() {
+            Target sut = new Target();
+            sut.PrioritizeThrough.Should().BeNull();
+            Target.GetPriorityExpiration(sut.PrioritizeThrough).Should().BeNull();
+
+            sut.PrioritizeThrough = new DateTime(2024, 12, 1, 15, 30, 0);
+            sut.PrioritizeThrough.Should().Be(new DateTime(2024, 12, 1));
+            Target.GetPriorityExpiration(sut.PrioritizeThrough).Should().Be(new DateTime(2024, 12, 2, 12, 0, 0));
+
+            sut.GetPasteCopy("abc123").PrioritizeThrough.Should().BeNull();
+            sut.GetPasteCopy("abc123", true).PrioritizeThrough.Should().Be(new DateTime(2024, 12, 1));
+
+            sut.PrioritizeThrough = null;
+            sut.prioritizeThrough.Should().BeNull();
         }
 
         [Test]

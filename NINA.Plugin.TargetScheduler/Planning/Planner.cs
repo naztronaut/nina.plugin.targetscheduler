@@ -82,6 +82,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
                     List<ITarget> readyTargets = GetTargetsReadyNow(projects);
                     if (readyTargets.Count > 0) {
                         SelectTargetExposures(readyTargets);
+                        readyTargets = ApplyTargetPriority(readyTargets, projects);
                         ITarget selectedTarget = readyTargets.Count == 1
                             ? readyTargets[0]
                             : SelectTargetByScore(readyTargets, new ScoringEngine(activeProfile, profilePreferences, atTime, previousTarget));
@@ -400,6 +401,63 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         }
 
         /// <summary>
+        /// If any of the ready targets are prioritized, restrict selection to just those and reject the rest.  If
+        /// prioritized targets exist but none are ready now (not visible, moon avoidance, etc.), fall back to the
+        /// normal ready targets and warn the user.
+        /// </summary>
+        /// <param name="readyTargets"></param>
+        /// <param name="projects"></param>
+        /// <returns></returns>
+        public List<ITarget> ApplyTargetPriority(List<ITarget> readyTargets, List<IProject> projects) {
+            if (Common.IsEmpty(readyTargets)) {
+                return readyTargets;
+            }
+
+            List<ITarget> prioritizedReady = readyTargets.Where(IsPrioritized).ToList();
+            if (prioritizedReady.Count > 0) {
+                readyTargets.Where(t => !IsPrioritized(t)).ToList().ForEach(t => SetRejected(t, Reasons.TargetNotPrioritized));
+                if (!isPreview && !checkCondition) {
+                    PriorityFallbackWarning.Instance.Clear();
+                }
+
+                return prioritizedReady;
+            }
+
+            List<ITarget> pendingPrioritized = GetPendingPrioritizedTargets(projects);
+            if (pendingPrioritized.Count > 0) {
+                string details = string.Join(", ", pendingPrioritized.Select(PrioritizedTargetStatus));
+                TSLogger.Info($"no prioritized targets are imagable now, falling back to non-prioritized targets: {details}");
+                if (!isPreview && !checkCondition) {
+                    PriorityFallbackWarning.Instance.Warn(atTime, details);
+                }
+            }
+
+            return readyTargets;
+        }
+
+        public bool IsPrioritized(ITarget target) {
+            return target.PriorityUntil.HasValue && atTime < target.PriorityUntil.Value;
+        }
+
+        private List<ITarget> GetPendingPrioritizedTargets(List<IProject> projects) {
+            if (NoProjects(projects)) { return new List<ITarget>(); }
+
+            return projects
+                .SelectMany(p => p.Targets)
+                .Where(t => IsPrioritized(t) && t.RejectedReason != Reasons.TargetComplete)
+                .ToList();
+        }
+
+        private string PrioritizedTargetStatus(ITarget target) {
+            string reason = target.RejectedReason ?? "not imagable";
+            if (target.RejectedReason == Reasons.TargetNotYetVisible) {
+                reason = $"{reason} until {target.StartTime:t}";
+            }
+
+            return $"{target.Name}: {reason}";
+        }
+
+        /// <summary>
         /// Run the scoring engine, applying the weighted rules to determine the target with the highest score.
         /// </summary>
         /// <param name="readyTargets"></param>
@@ -557,6 +615,38 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         }
     }
 
+    /// <summary>
+    /// Shows the 'prioritized targets unavailable' warning once per fallback episode rather than on every planner run.
+    /// The warning is re-armed when a prioritized target is selected again, or when a new night starts.
+    /// </summary>
+    public class PriorityFallbackWarning {
+        private static readonly Lazy<PriorityFallbackWarning> lazy = new Lazy<PriorityFallbackWarning>(() => new PriorityFallbackWarning());
+        public static PriorityFallbackWarning Instance { get => lazy.Value; }
+        private static object lockObj = new object();
+
+        private DateTime? warnedNight;
+
+        private PriorityFallbackWarning() {
+        }
+
+        public void Clear() {
+            lock (lockObj) {
+                warnedNight = null;
+            }
+        }
+
+        public void Warn(DateTime atTime, string details) {
+            DateTime night = atTime.AddHours(-12).Date;
+            lock (lockObj) {
+                if (warnedNight == night) { return; }
+                warnedNight = night;
+            }
+
+            TSLogger.Warning($"prioritized targets are not available now, imaging other targets instead: {details}");
+            Notification.ShowWarning($"Target Scheduler: prioritized targets are not available now, imaging other targets instead ({details})");
+        }
+    }
+
     public class Reasons {
         public const string ProjectComplete = "complete";
         public const string ProjectNoVisibleTargets = "no visible targets";
@@ -575,6 +665,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         public const string TargetMoonAvoidance = "all exposure plans rejected for moon avoidance";
         public const string TargetHumidity = "all exposure plans rejected for humidity";
         public const string TargetLowerScore = "lower score";
+        public const string TargetNotPrioritized = "not prioritized";
         public const string TargetAllExposurePlans = "all exposure plans rejected";
 
         public const string FilterComplete = "complete";

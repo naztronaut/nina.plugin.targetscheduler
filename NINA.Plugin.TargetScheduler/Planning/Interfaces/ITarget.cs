@@ -21,6 +21,7 @@ namespace NINA.Plugin.TargetScheduler.Planning.Interfaces {
         List<IExposure> CompletedExposurePlans { get; set; }
         IExposureSelector ExposureSelector { get; set; }
         IProject Project { get; set; }
+        DateTime? PriorityUntil { get; set; }
 
         bool Rejected { get; set; }
         string RejectedReason { get; set; }

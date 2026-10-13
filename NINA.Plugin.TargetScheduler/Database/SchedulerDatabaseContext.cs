@@ -160,6 +160,8 @@ namespace NINA.Plugin.TargetScheduler.Database {
 
         bool DeleteTarget(Target target);
 
+        bool SetTargetPriority(int targetId, DateTime? prioritizeThrough);
+
         Target ToggleExposurePlan(Target target, ExposurePlan exposurePlan);
 
         Target DeleteExposurePlan(Target target, ExposurePlan exposurePlan);
@@ -964,6 +966,27 @@ namespace NINA.Plugin.TargetScheduler.Database {
                     return true;
                 } catch (Exception e) {
                     TSLogger.Error($"error deleting target: {e.Message} {e.StackTrace}");
+                    RollbackTransaction(transaction);
+                    return false;
+                }
+            }
+        }
+
+        public bool SetTargetPriority(int targetId, DateTime? prioritizeThrough) {
+            using (var transaction = Database.BeginTransaction()) {
+                try {
+                    Target target = GetTargetOnly(targetId);
+                    if (target == null) {
+                        TSLogger.Warning($"failed to find target ID {targetId} to set priority");
+                        return false;
+                    }
+
+                    target.PrioritizeThrough = prioritizeThrough;
+                    SaveChanges();
+                    transaction.Commit();
+                    return true;
+                } catch (Exception e) {
+                    TSLogger.Error($"error setting priority for target ID {targetId}: {e.Message} {e.StackTrace}");
                     RollbackTransaction(transaction);
                     return false;
                 }

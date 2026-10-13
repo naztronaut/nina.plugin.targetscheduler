@@ -391,6 +391,7 @@ namespace NINA.Plugin.TargetScheduler.Test.Planning.Exposures {
         public double ROI { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public bool IsPreview { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public IProject Project { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public DateTime? PriorityUntil { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public bool Rejected { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public string RejectedReason { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public IExposure SelectedExposure { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }

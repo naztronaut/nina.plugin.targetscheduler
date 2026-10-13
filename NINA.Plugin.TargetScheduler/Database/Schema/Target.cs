@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using NINA.Astrometry;
+using NINA.Plugin.TargetScheduler.Shared.Utility;
 using NINA.Plugin.TargetScheduler.Util;
 using System;
 using System.Collections.Generic;
@@ -26,6 +27,7 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
         public double rotation { get; set; }
         public double roi { get; set; }
         public string unusedOEO { get; set; }
+        public long? prioritizeThrough { get; set; }
 
         [ForeignKey("Project")][JsonProperty] public int ProjectId { get; set; }
         public virtual Project Project { get; set; }
@@ -69,6 +71,29 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
                 active = value;
                 RaisePropertyChanged(nameof(Enabled));
             }
+        }
+
+        /// <summary>
+        /// Calendar date through which the target is prioritized (inclusive of the night starting on that date),
+        /// or null if not prioritized.  While prioritized, the planner will select this target over any
+        /// non-prioritized target whenever it is imagable.
+        /// </summary>
+        [NotMapped]
+        [JsonProperty]
+        public DateTime? PrioritizeThrough {
+            get { return prioritizeThrough == null ? null : Common.UnixSecondsToDateTime(prioritizeThrough).Date; }
+            set {
+                prioritizeThrough = value == null ? null : Common.DateTimeToUnixSeconds(value.Value.Date);
+                RaisePropertyChanged(nameof(PrioritizeThrough));
+            }
+        }
+
+        /// <summary>
+        /// The time at which prioritization ends: noon on the day after the PrioritizeThrough date, so that the
+        /// entire night starting on that date is included.
+        /// </summary>
+        public static DateTime? GetPriorityExpiration(DateTime? prioritizeThrough) {
+            return prioritizeThrough?.Date.AddDays(1).AddHours(12);
         }
 
         [NotMapped]
@@ -285,6 +310,7 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
             target.epochCode = epochCode;
             target.rotation = rotation;
             target.roi = roi;
+            target.prioritizeThrough = moveOp ? prioritizeThrough : null;
             ExposurePlans.ForEach(item => target.ExposurePlans.Add(item.GetPasteCopy(profileId, moveOp)));
             OverrideExposureOrders.ForEach(item => target.OverrideExposureOrders.Add(item.GetPasteCopy(Id)));
 
@@ -306,6 +332,7 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
             sb.AppendLine($"Epoch: {Epoch}");
             sb.AppendLine($"Rotation: {Rotation}");
             sb.AppendLine($"ROI: {ROI}");
+            sb.AppendLine($"PrioritizeThrough: {PrioritizeThrough?.ToString("d") ?? "off"}");
 
             return sb.ToString();
         }
