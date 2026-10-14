@@ -20,6 +20,7 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
         public int accepted { get; set; }
 
         public bool enabled { get; set; }
+        public int skipWhilePrioritized { get; set; }
 
         [ForeignKey("ExposureTemplate")]
         [JsonProperty]
@@ -103,6 +104,20 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
             }
         }
 
+        /// <summary>
+        /// If true, this exposure plan is skipped while the target is prioritized (see Target.PrioritizeThrough).  This
+        /// lets the user, for example, image only one filter on a target for a week.
+        /// </summary>
+        [NotMapped]
+        [JsonProperty]
+        public bool SkipWhilePrioritized {
+            get { return skipWhilePrioritized == 1; }
+            set {
+                skipWhilePrioritized = value ? 1 : 0;
+                RaisePropertyChanged(nameof(SkipWhilePrioritized));
+            }
+        }
+
         [NotMapped]
         public double PercentComplete { get; set; }
 
@@ -136,6 +151,7 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
             exposurePlan.acquired = moveOp ? acquired : 0;
             exposurePlan.accepted = moveOp ? accepted : 0;
             exposurePlan.enabled = enabled;
+            exposurePlan.skipWhilePrioritized = moveOp ? skipWhilePrioritized : 0;
 
             return exposurePlan;
         }
@@ -150,6 +166,7 @@ namespace NINA.Plugin.TargetScheduler.Database.Schema {
             sb.AppendLine($"Acquired: {Acquired}");
             sb.AppendLine($"Accepted: {Accepted}");
             sb.AppendLine($"Enabled: {IsEnabled}");
+            sb.AppendLine($"SkipWhilePrioritized: {SkipWhilePrioritized}");
 
             return sb.ToString();
         }

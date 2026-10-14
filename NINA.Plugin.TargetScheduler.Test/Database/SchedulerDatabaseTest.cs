@@ -615,6 +615,37 @@ namespace NINA.Plugin.TargetScheduler.Test.Database {
             }
         }
 
+        [Test, Order(14)]
+        [NonParallelizable]
+        public void TestSetTargetOverrides() {
+            int targetId;
+            int haId;
+
+            using (var context = db.GetContext()) {
+                Target target = context.GetAllProjects(profileId).First().Targets.First();
+                targetId = target.Id;
+                haId = target.ExposurePlans.First(ep => ep.ExposureTemplate.FilterName == "Ha").Id;
+                context.SetTargetOverrides(targetId, new DateTime(2024, 12, 5), new List<int> { haId }).Should().BeTrue();
+            }
+
+            using (var context = db.GetContext()) {
+                Target target = context.GetTargetOnly(targetId);
+                target.PrioritizeThrough.Should().Be(new DateTime(2024, 12, 5));
+                List<ExposurePlan> plans = context.ExposurePlanSet.Where(ep => ep.TargetId == targetId).ToList();
+                plans.Single(ep => ep.Id == haId).SkipWhilePrioritized.Should().BeTrue();
+                plans.Where(ep => ep.Id != haId).All(ep => !ep.SkipWhilePrioritized).Should().BeTrue();
+
+                // Clearing the priority also clears any skips
+                context.SetTargetOverrides(targetId, null, new List<int> { haId }).Should().BeTrue();
+            }
+
+            using (var context = db.GetContext()) {
+                context.GetTargetOnly(targetId).PrioritizeThrough.Should().BeNull();
+                context.ExposurePlanSet.Where(ep => ep.TargetId == targetId).ToList().All(ep => !ep.SkipWhilePrioritized).Should().BeTrue();
+                context.SetTargetOverrides(-1, null, null).Should().BeFalse();
+            }
+        }
+
         private void LoadTestDatabase() {
             using (var context = db.GetContext()) {
                 try {

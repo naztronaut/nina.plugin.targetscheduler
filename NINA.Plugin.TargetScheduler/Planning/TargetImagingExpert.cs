@@ -312,6 +312,29 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         }
 
         /// <summary>
+        /// True if the target's prioritization override is in effect at the provided time.
+        /// </summary>
+        public static bool IsPrioritized(DateTime atTime, ITarget target) {
+            return target.PriorityUntil.HasValue && atTime < target.PriorityUntil.Value;
+        }
+
+        /// <summary>
+        /// While the target is prioritized, reject the exposure plans the user has chosen to skip (for example,
+        /// to image only one filter for a week).
+        /// </summary>
+        /// <param name="atTime"></param>
+        /// <param name="target"></param>
+        public void PriorityOverrideFilter(DateTime atTime, ITarget target) {
+            if (target.Rejected || !IsPrioritized(atTime, target)) { return; }
+
+            foreach (IExposure exposure in target.ExposurePlans) {
+                if (!exposure.Rejected && exposure.SkipWhilePrioritized) {
+                    SetRejected(exposure, Reasons.FilterSkippedByOverride);
+                }
+            }
+        }
+
+        /// <summary>
         /// Determine if the target is ready to image at the provided time, taking the visibility sampling
         /// interval into account.
         /// </summary>
@@ -353,7 +376,14 @@ namespace NINA.Plugin.TargetScheduler.Planning {
             atTime = maxAltClipper.NextSafeStart(atTime, atTime.AddMinutes(target.Project.MinimumTime));
 
             while (true) {
-                // Check target for moon avoidance, and twilight at this time
+                // Check target for prioritization filter skips, moon avoidance, and twilight at this time
+
+                if (!target.Rejected) {
+                    PriorityOverrideFilter(atTime, target);
+                    if (AllExposurePlansRejected(target)) {
+                        SetRejected(target, Reasons.TargetFiltersSkipped);
+                    }
+                }
 
                 if (!target.Rejected) {
                     MoonAvoidanceFilter(atTime, target, moonExpert);

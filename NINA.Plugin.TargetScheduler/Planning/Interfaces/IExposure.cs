@@ -30,6 +30,7 @@ namespace NINA.Plugin.TargetScheduler.Planning.Interfaces {
         double MaximumHumidity { get; set; }
 
         bool PreDither { get; set; }
+        bool SkipWhilePrioritized { get; set; }
 
         bool Rejected { get; set; }
         string RejectedReason { get; set; }

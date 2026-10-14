@@ -221,6 +221,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         public double MaximumHumidity { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public double MoonAvoidanceScore { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public bool PreDither { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public bool SkipWhilePrioritized { get; set; }
 
         public EmulatedExposure() {
             this.PlanId = Guid.NewGuid().ToString();

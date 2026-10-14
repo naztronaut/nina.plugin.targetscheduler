@@ -160,7 +160,7 @@ namespace NINA.Plugin.TargetScheduler.Database {
 
         bool DeleteTarget(Target target);
 
-        bool SetTargetPriority(int targetId, DateTime? prioritizeThrough);
+        bool SetTargetOverrides(int targetId, DateTime? prioritizeThrough, ICollection<int> skippedExposurePlanIds);
 
         Target ToggleExposurePlan(Target target, ExposurePlan exposurePlan);
 
@@ -853,6 +853,8 @@ namespace NINA.Plugin.TargetScheduler.Database {
                     TargetSet.AddOrUpdate(target);
 
                     target.ExposurePlans.ForEach(plan => {
+                        // Filter skips only apply while prioritized, so don't let stale ones linger
+                        if (target.PrioritizeThrough == null) { plan.SkipWhilePrioritized = false; }
                         plan.ExposureTemplate = null; // clear this (ExposureTemplateId handles the relation)
                         ExposurePlanSet.AddOrUpdate(plan);
                         plan.ExposureTemplate = GetExposureTemplate(plan.ExposureTemplateId); // add back for UI
@@ -972,7 +974,11 @@ namespace NINA.Plugin.TargetScheduler.Database {
             }
         }
 
-        public bool SetTargetPriority(int targetId, DateTime? prioritizeThrough) {
+        /// <summary>
+        /// Set the prioritization override for a target: the date it's prioritized through (null for none) and which of its
+        /// exposure plans are skipped while prioritized.  Skips are cleared when the target isn't prioritized.
+        /// </summary>
+        public bool SetTargetOverrides(int targetId, DateTime? prioritizeThrough, ICollection<int> skippedExposurePlanIds) {
             using (var transaction = Database.BeginTransaction()) {
                 try {
                     Target target = GetTargetOnly(targetId);
@@ -982,6 +988,10 @@ namespace NINA.Plugin.TargetScheduler.Database {
                     }
 
                     target.PrioritizeThrough = prioritizeThrough;
+                    foreach (ExposurePlan plan in ExposurePlanSet.Where(p => p.TargetId == targetId).ToList()) {
+                        plan.SkipWhilePrioritized = prioritizeThrough != null && skippedExposurePlanIds != null && skippedExposurePlanIds.Contains(plan.Id);
+                    }
+
                     SaveChanges();
                     transaction.Commit();
                     return true;

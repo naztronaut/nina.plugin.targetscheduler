@@ -38,6 +38,7 @@ namespace NINA.Plugin.TargetScheduler.Planning.Entities {
         public double MaximumHumidity { get; set; }
 
         public bool PreDither { get; set; }
+        public bool SkipWhilePrioritized { get; set; }
 
         public bool Rejected { get; set; }
         public string RejectedReason { get; set; }
@@ -73,6 +74,7 @@ namespace NINA.Plugin.TargetScheduler.Planning.Entities {
             this.MaximumHumidity = exposureTemplate.MaximumHumidity;
 
             this.PreDither = false;
+            this.SkipWhilePrioritized = exposurePlan.SkipWhilePrioritized;
             this.Rejected = false;
         }
 
@@ -101,6 +103,7 @@ namespace NINA.Plugin.TargetScheduler.Planning.Entities {
             sb.AppendLine($"Acquired: {Acquired}");
             sb.AppendLine($"Accepted: {Accepted}");
             sb.AppendLine($"Pre-dither: {PreDither}");
+            sb.AppendLine($"Skip while prioritized: {SkipWhilePrioritized}");
             sb.AppendLine($"Rejected: {Rejected}");
             sb.AppendLine($"RejectedReason: {RejectedReason}");
             return sb.ToString();

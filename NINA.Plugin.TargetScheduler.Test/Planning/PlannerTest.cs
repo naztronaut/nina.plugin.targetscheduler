@@ -881,6 +881,67 @@ namespace NINA.Plugin.TargetScheduler.Test.Planning {
             t1.Rejected.Should().BeFalse();
         }
 
+        [Test]
+        public void testFilterForPriorityOverrides() {
+            DateTime atTime = new DateTime(2024, 12, 1, 20, 0, 0);
+            Mock<ITarget> pt = PlanMocks.GetMockPlanTarget("T1", TestData.M31);
+            Mock<IExposure> ha = PlanMocks.GetMockPlanExposure("Ha", 10, 0);
+            Mock<IExposure> oiii = PlanMocks.GetMockPlanExposure("OIII", 10, 0);
+            PlanMocks.AddMockPlanFilter(pt, ha);
+            PlanMocks.AddMockPlanFilter(pt, oiii);
+            ITarget target = pt.Object;
+            ha.Object.SkipWhilePrioritized = true;
+
+            // Not prioritized: skips don't apply
+            GetPriorityPlanner(atTime).FilterForPriorityOverrides(ProjectsFor(target));
+            ha.Object.Rejected.Should().BeFalse();
+            oiii.Object.Rejected.Should().BeFalse();
+
+            // Prioritized: only the skipped filter is rejected
+            target.PriorityUntil = atTime.AddDays(1);
+            GetPriorityPlanner(atTime).FilterForPriorityOverrides(ProjectsFor(target));
+            ha.Object.Rejected.Should().BeTrue();
+            ha.Object.RejectedReason.Should().Be(Reasons.FilterSkippedByOverride);
+            oiii.Object.Rejected.Should().BeFalse();
+            target.Rejected.Should().BeFalse();
+        }
+
+        [Test]
+        public void testFilterForPriorityOverridesExpired() {
+            DateTime atTime = new DateTime(2024, 12, 1, 20, 0, 0);
+            Mock<ITarget> pt = PlanMocks.GetMockPlanTarget("T1", TestData.M31);
+            Mock<IExposure> ha = PlanMocks.GetMockPlanExposure("Ha", 10, 0);
+            PlanMocks.AddMockPlanFilter(pt, ha);
+            ITarget target = pt.Object;
+            ha.Object.SkipWhilePrioritized = true;
+            target.PriorityUntil = atTime.AddMinutes(-1);
+
+            GetPriorityPlanner(atTime).FilterForPriorityOverrides(ProjectsFor(target));
+            ha.Object.Rejected.Should().BeFalse();
+            target.Rejected.Should().BeFalse();
+        }
+
+        [Test]
+        public void testFilterForPriorityOverridesAllSkipped() {
+            DateTime atTime = new DateTime(2024, 12, 1, 20, 0, 0);
+            Mock<ITarget> pt = PlanMocks.GetMockPlanTarget("T1", TestData.M31);
+            Mock<IExposure> ha = PlanMocks.GetMockPlanExposure("Ha", 10, 0);
+            Mock<IExposure> oiii = PlanMocks.GetMockPlanExposure("OIII", 10, 0);
+            PlanMocks.AddMockPlanFilter(pt, ha);
+            PlanMocks.AddMockPlanFilter(pt, oiii);
+            ITarget target = pt.Object;
+            target.PriorityUntil = atTime.AddDays(1);
+            ha.Object.SkipWhilePrioritized = true;
+
+            // The only non-skipped filter is already complete
+            oiii.Object.Rejected = true;
+            oiii.Object.RejectedReason = Reasons.FilterComplete;
+
+            GetPriorityPlanner(atTime).FilterForPriorityOverrides(ProjectsFor(target));
+            target.Rejected.Should().BeTrue();
+            target.RejectedReason.Should().Be(Reasons.TargetFiltersSkipped);
+        }
+
         private Planner GetPriorityPlanner(DateTime atTime) {
             IProfile profile = PlanMocks.GetMockProfileService(TestData.Pittsboro_NC).Object.ActiveProfile;
             return new Planner(atTime, profile, GetPrefs(), PlanMocks.GetWeatherDataMediator(false, 0), false, true);

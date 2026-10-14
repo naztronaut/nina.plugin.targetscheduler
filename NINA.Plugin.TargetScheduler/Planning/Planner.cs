@@ -74,6 +74,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
                     // Filter all targets for suitability
                     projects = FilterForIncomplete(projects);
                     projects = FilterForVisibility(projects);
+                    projects = FilterForPriorityOverrides(projects);
                     projects = FilterForMoonAvoidance(projects);
                     projects = FilterForTwilight(projects);
                     projects = FilterForHumidity(projects, weatherDataMediator);
@@ -170,6 +171,26 @@ namespace NINA.Plugin.TargetScheduler.Planning {
 
                 foreach (ITarget target in project.Targets) {
                     targetExpert.Visibility(atTime, target);
+                }
+            }
+
+            return PropagateRejections(projects);
+        }
+
+        /// <summary>
+        /// For prioritized targets, reject the exposure plans the user has chosen to skip while prioritized.
+        /// </summary>
+        /// <param name="projects"></param>
+        /// <returns></returns>
+        public List<IProject> FilterForPriorityOverrides(List<IProject> projects) {
+            if (NoProjects(projects)) { return null; }
+            TargetImagingExpert targetExpert = new TargetImagingExpert(activeProfile, profilePreferences, isPreview);
+
+            foreach (IProject project in projects) {
+                if (project.Rejected) { continue; }
+
+                foreach (ITarget target in project.Targets) {
+                    targetExpert.PriorityOverrideFilter(atTime, target);
                 }
             }
 
@@ -436,7 +457,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         }
 
         public bool IsPrioritized(ITarget target) {
-            return target.PriorityUntil.HasValue && atTime < target.PriorityUntil.Value;
+            return TargetImagingExpert.IsPrioritized(atTime, target);
         }
 
         private List<ITarget> GetPendingPrioritizedTargets(List<IProject> projects) {
@@ -595,6 +616,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
             if (target.ExposurePlans.All(ep => ep.RejectedReason == Reasons.FilterTwilight)) { return Reasons.TargetTwilight; }
             if (target.ExposurePlans.All(ep => ep.RejectedReason == Reasons.FilterMoonAvoidance)) { return Reasons.TargetMoonAvoidance; }
             if (target.ExposurePlans.All(ep => ep.RejectedReason == Reasons.FilterHumidity)) { return Reasons.TargetHumidity; }
+            if (target.ExposurePlans.All(ep => ep.RejectedReason == Reasons.FilterSkippedByOverride || ep.RejectedReason == Reasons.FilterComplete)) { return Reasons.TargetFiltersSkipped; }
             return Reasons.TargetAllExposurePlans; // implicit assumption that all are indeed rejected
         }
 
@@ -666,6 +688,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         public const string TargetHumidity = "all exposure plans rejected for humidity";
         public const string TargetLowerScore = "lower score";
         public const string TargetNotPrioritized = "not prioritized";
+        public const string TargetFiltersSkipped = "remaining filters skipped while prioritized";
         public const string TargetAllExposurePlans = "all exposure plans rejected";
 
         public const string FilterComplete = "complete";
@@ -673,6 +696,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         public const string FilterTwilight = "twilight";
         public const string FilterHumidity = "humidity";
         public const string FilterNoExposuresPlanned = "no exposures planned";
+        public const string FilterSkippedByOverride = "skipped while prioritized";
 
         private Reasons() {
         }

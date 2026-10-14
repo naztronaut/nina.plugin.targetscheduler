@@ -161,6 +161,66 @@ namespace NINA.Plugin.TargetScheduler.Test.Planning {
         }
 
         [Test]
+        public void testPreviousTargetCanContinuePrioritySkip() {
+            ObserverInfo observerInfo = TestData.Pittsboro_NC;
+            Mock<IProfileService> profileMock = PlanMocks.GetMockProfileService(observerInfo);
+            IWeatherDataMediator weatherData = PlanMocks.GetWeatherDataMediator(false, 0);
+            IProfile profile = profileMock.Object.ActiveProfile;
+            DateTime atTime = new DateTime(2025, 2, 16, 22, 30, 0);
+
+            Mock<IProject> pp = PlanMocks.GetMockPlanProject("pp1", ProjectState.Active);
+            pp.SetupProperty(p => p.EnableGrader, true);
+            Mock<ITarget> pt = PlanMocks.GetMockPlanTarget("M42", TestData.M42);
+            pt.SetupProperty(m => m.EndTime, atTime.AddHours(12));
+            var exposureSelector = new RepeatUntilDoneExposureSelector(pp.Object, pt.Object, new Target());
+            pt.SetupProperty(p => p.IsPreview, true);
+            pt.SetupProperty(p => p.MinimumTimeSpanEnd, atTime.AddHours(1));
+            pt.SetupProperty(p => p.BonusTimeSpanEnd, atTime.AddHours(1));
+            pt.SetupProperty(p => p.ExposureSelector, exposureSelector);
+
+            // Ha comes first, so the repeat-until-done selector would pick it unless it's skipped
+            IExposure ha = GetPriorityTestExposure(pt.Object, "Ha");
+            ha.SkipWhilePrioritized = true;
+            IExposure oiii = GetPriorityTestExposure(pt.Object, "OIII");
+            pt.Object.AllExposurePlans.Add(ha);
+            pt.Object.AllExposurePlans.Add(oiii);
+            PlanMocks.AddMockPlanTarget(pp, pt);
+
+            PreviousTargetExpert sut = new PreviousTargetExpert(profile, GetPrefs(), true, observerInfo);
+            ITarget target = pt.Object;
+
+            // Prioritized: Ha is skipped so the continuation must pick OIII
+            target.PriorityUntil = atTime.AddDays(1);
+            sut.CanContinue(atTime, weatherData, target).Should().BeTrue();
+            target.SelectedExposure.FilterName.Should().Be("OIII");
+
+            // Prioritization expired: Ha is back in play
+            ha.Rejected = false;
+            target.PriorityUntil = atTime.AddMinutes(-1);
+            sut.CanContinue(atTime, weatherData, target).Should().BeTrue();
+            target.SelectedExposure.FilterName.Should().Be("Ha");
+
+            // Prioritized with only the skipped filter remaining: can't continue
+            ha.Rejected = false;
+            oiii.Accepted = oiii.Desired;
+            target.PriorityUntil = atTime.AddDays(1);
+            sut.CanContinue(atTime, weatherData, target).Should().BeFalse();
+        }
+
+        private IExposure GetPriorityTestExposure(ITarget target, string filterName) {
+            IExposure exposure = new PlanningExposure();
+            exposure.PlanTarget = target;
+            exposure.FilterName = filterName;
+            exposure.ExposureLength = 180;
+            exposure.Desired = 10;
+            exposure.Accepted = 0;
+            exposure.Acquired = 0;
+            exposure.MoonAvoidanceEnabled = false;
+            exposure.MaximumHumidity = 0;
+            return exposure;
+        }
+
+        [Test]
         public void testPreviousTargetCanContinueOverrideExposureOrder() {
             ObserverInfo observerInfo = TestData.Pittsboro_NC;
             Mock<IProfileService> profileMock = PlanMocks.GetMockProfileService(observerInfo);

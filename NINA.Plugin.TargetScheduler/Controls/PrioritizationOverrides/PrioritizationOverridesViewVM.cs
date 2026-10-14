@@ -46,7 +46,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
             profileService.ProfileChanged += ProfileService_ProfileChanged;
 
             CalculateCommand = new AsyncRelayCommand(Calculate);
-            SaveCommand = new RelayCommand(Save);
+            SaveCommand = new AsyncRelayCommand(Save);
             RevertCommand = new RelayCommand(Revert);
         }
 
@@ -229,14 +229,17 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
             }
         }
 
-        private void Save() {
+        private async Task Save() {
             List<PrioritizationOverrideRow> changed = Rows.Where(r => r.IsChanged).ToList();
             if (changed.Count == 0) { return; }
+
+            // Skipping filters can change when a target is imagable (e.g. moon avoidance differs by filter)
+            bool filtersChanged = changed.Any(r => r.FiltersChanged);
 
             int failed = 0;
             using (var context = database.GetContext()) {
                 foreach (PrioritizationOverrideRow row in changed) {
-                    if (context.SetTargetPriority(row.TargetId, row.PrioritizeThrough)) {
+                    if (context.SetTargetOverrides(row.TargetId, row.PrioritizeThrough, row.SkippedExposurePlanIds)) {
                         row.AcceptChange();
                     } else {
                         failed++;
@@ -246,9 +249,13 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
 
             RaisePropertyChanged(nameof(HasChanges));
             if (failed > 0) {
-                Notification.ShowError($"Failed to save priority for {failed} target(s) (see log for details)");
-            } else {
-                Notification.ShowSuccess($"Saved priority for {changed.Count} target(s)");
+                Notification.ShowError($"Failed to save overrides for {failed} target(s) (see log for details)");
+                return;
+            }
+
+            Notification.ShowSuccess($"Saved overrides for {changed.Count} target(s)");
+            if (filtersChanged) {
+                await Calculate();
             }
         }
 
@@ -372,6 +379,7 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
             TargetName = availability.Target.Name;
             PercentComplete = Math.Round(availability.Target.Project.ExposureCompletionHelper.PercentComplete(availability.Target));
             NightCells = availability.Nights.Select(BuildCell).ToList();
+            Filters = BuildFilterToggles(availability.Target);
 
             originalPrioritizeThrough = prioritizeThrough?.Date;
             this.prioritizeThrough = originalPrioritizeThrough;
@@ -383,6 +391,42 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
 
         public ICommand TogglePriorityCommand { get; private set; }
         public ICommand OpenTargetCommand { get; private set; }
+
+        /// <summary>
+        /// The target's remaining (incomplete, enabled) exposure plans, which can be skipped while prioritized.
+        /// </summary>
+        public List<FilterToggle> Filters { get; }
+
+        public bool FiltersChanged => Filters.Any(f => f.IsChanged);
+
+        public List<int> SkippedExposurePlanIds => Filters.Where(f => !f.IsOn).Select(f => f.ExposurePlanId).ToList();
+
+        internal void ToggleFilter(FilterToggle filter) {
+            if (filter.IsOn && Filters.Count(f => f.IsOn) == 1) {
+                Notification.ShowInformation("At least one filter must remain on for a prioritized target");
+                return;
+            }
+
+            filter.IsOn = !filter.IsOn;
+
+            // Filter skips only apply while prioritized, so skipping a filter prioritizes the target
+            if (!filter.IsOn && !IsPrioritized) {
+                IsPrioritized = true;
+            }
+
+            RaisePropertyChanged(nameof(IsChanged));
+            parent.RowChanged();
+        }
+
+        private List<FilterToggle> BuildFilterToggles(ITarget target) {
+            List<IExposure> plans = target.ExposurePlans;
+            return plans.Select(ep => {
+                // Distinguish plans that share a filter by exposure length
+                bool duplicate = plans.Count(p => p.FilterName == ep.FilterName) > 1;
+                string label = duplicate ? $"{ep.FilterName} {ep.ExposureLength:0.#}s" : ep.FilterName;
+                return new FilterToggle(this, ep.DatabaseId, label, !ep.SkipWhilePrioritized);
+            }).ToList();
+        }
 
         private DateTime? prioritizeThrough;
 
@@ -397,6 +441,10 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
 
                 prioritizeThrough = date;
                 if (date != null) { lastPrioritizeThrough = date; }
+
+                // Filter skips only apply while prioritized: clearing priority turns all filters back on
+                if (date == null) { Filters.ForEach(f => f.IsOn = true); }
+
                 RaisePropertyChanged(nameof(PrioritizeThrough));
                 RaisePropertyChanged(nameof(IsPrioritized));
                 RaisePropertyChanged(nameof(IsChanged));
@@ -422,15 +470,19 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
             }
         }
 
-        public bool IsChanged => prioritizeThrough != originalPrioritizeThrough;
+        public bool IsChanged => prioritizeThrough != originalPrioritizeThrough || FiltersChanged;
 
         public void AcceptChange() {
             originalPrioritizeThrough = prioritizeThrough;
+            Filters.ForEach(f => f.AcceptChange());
             RaisePropertyChanged(nameof(IsChanged));
         }
 
         public void RevertChange() {
             PrioritizeThrough = originalPrioritizeThrough;
+            Filters.ForEach(f => f.RevertChange());
+            RaisePropertyChanged(nameof(IsChanged));
+            parent.RowChanged();
         }
 
         private static AvailabilityCell BuildCell(NightAvailability night) {
@@ -454,6 +506,54 @@ namespace NINA.Plugin.TargetScheduler.Controls.PrioritizationOverrides {
             }
 
             return new AvailabilityCell($"{intervals}\n{PrioritizationOverridesViewVM.FormatMinutes(night.Minutes)} · {moon}", tip.ToString(), true);
+        }
+    }
+
+    /// <summary>
+    /// One of a target's exposure plans, which can be switched off (skipped) while the target is prioritized.
+    /// </summary>
+    public class FilterToggle : BaseINPC {
+        private readonly PrioritizationOverrideRow row;
+        private bool originalIsOn;
+
+        public int ExposurePlanId { get; }
+        public string Label { get; }
+
+        public FilterToggle(PrioritizationOverrideRow row, int exposurePlanId, string label, bool isOn) {
+            this.row = row;
+            ExposurePlanId = exposurePlanId;
+            Label = label;
+            this.isOn = isOn;
+            originalIsOn = isOn;
+            ToggleCommand = new RelayCommand(() => row.ToggleFilter(this));
+        }
+
+        public ICommand ToggleCommand { get; private set; }
+
+        public string ToolTip => IsOn
+            ? $"{Label} will be imaged.  Click to skip it while the target is prioritized."
+            : $"{Label} is skipped while the target is prioritized.  Click to image it.";
+
+        private bool isOn;
+
+        public bool IsOn {
+            get => isOn;
+            set {
+                if (value == isOn) { return; }
+                isOn = value;
+                RaisePropertyChanged(nameof(IsOn));
+                RaisePropertyChanged(nameof(ToolTip));
+            }
+        }
+
+        public bool IsChanged => isOn != originalIsOn;
+
+        public void AcceptChange() {
+            originalIsOn = isOn;
+        }
+
+        public void RevertChange() {
+            IsOn = originalIsOn;
         }
     }
 

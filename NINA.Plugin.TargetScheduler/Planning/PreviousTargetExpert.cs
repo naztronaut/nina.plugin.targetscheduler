@@ -37,6 +37,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
         /// However, we also need to perform some additional checks:
         /// * if all exposure plans are now complete -> done
         /// * recheck if all exposure plans would now be rejected due to moon avoidance
+        /// * reject exposure plans the user has chosen to skip while the target is prioritized
         /// * confirm that the next selected exposure is suitable for the current level of twilight
         /// </summary>
         /// <param name="atTime"></param>
@@ -65,6 +66,14 @@ namespace NINA.Plugin.TargetScheduler.Planning {
             bool allRejected = previousTarget.ExposurePlans.All(ep => ep.Rejected);
             if (allRejected) {
                 TSLogger.Info($"not continuing previous target at {atTime}, {previousTarget.Name}: all remaining exposure plans now rejected for moon avoidance");
+                return false;
+            }
+
+            // Recheck for filters skipped while prioritized (the prioritization may also have expired since the target started)
+            targetExpert.PriorityOverrideFilter(atTime, previousTarget);
+            allRejected = previousTarget.ExposurePlans.All(ep => ep.Rejected);
+            if (allRejected) {
+                TSLogger.Info($"not continuing previous target at {atTime}, {previousTarget.Name}: all remaining exposure plans are skipped while prioritized");
                 return false;
             }
 

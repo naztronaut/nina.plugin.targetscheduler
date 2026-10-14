@@ -94,6 +94,7 @@ namespace NINA.Plugin.TargetScheduler.Planning {
                     Planner planner = new Planner(atTime, profile, profilePreference, weather, false, true, projects);
                     List<IProject> filtered = planner.FilterForIncomplete(projects);
                     filtered = planner.FilterForVisibility(filtered);
+                    filtered = planner.FilterForPriorityOverrides(filtered);
                     filtered = planner.FilterForMoonAvoidance(filtered);
                     filtered = planner.FilterForTwilight(filtered);
                     HashSet<ITarget> readyNow = new HashSet<ITarget>(planner.GetTargetsReadyNow(filtered));

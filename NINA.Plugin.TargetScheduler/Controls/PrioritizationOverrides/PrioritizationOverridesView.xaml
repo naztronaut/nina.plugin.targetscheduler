@@ -59,7 +59,7 @@
                     Margin="15"
                     HorizontalAlignment="Left"
                     FontStyle="Italic"
-                    Text="Override the scheduler's normal target selection: while a target is prioritized, it is imaged in preference to any other target whenever it can be imaged; at other times the scheduler falls back to the remaining targets. Click the checkmark to prioritize a target (through the last night shown; change the date on the row as needed). The grid shows when each active target can be imaged over the coming nights."
+                    Text="Override the scheduler's normal target selection: while a target is prioritized, it is imaged in preference to any other target whenever it can be imaged; at other times the scheduler falls back to the remaining targets. Click the checkmark to prioritize a target (through the last night shown; change the date on the row as needed), and click a filter to skip it until the prioritization expires. The grid shows when each active target can be imaged over the coming nights."
                     TextWrapping="Wrap" />
 
                 <Grid
@@ -181,6 +181,11 @@
                         Width="140"
                         FontWeight="Bold"
                         Text="Prioritize Through" />
+                    <TextBlock
+                        Width="190"
+                        FontWeight="Bold"
+                        Text="Filters"
+                        ToolTip="Filters to image while the target is prioritized.  Click a filter to skip it until the prioritization expires." />
                     <ItemsControl ItemsPanel="{StaticResource HorizontalPanel}" ItemsSource="{Binding NightHeaders}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -202,7 +207,7 @@
                     BorderThickness="0,1,0,1">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock
-                            Width="450"
+                            Width="640"
                             Padding="4,2,0,2"
                             VerticalAlignment="Center"
                             FontWeight="Bold"
@@ -295,6 +300,43 @@
                                         VerticalAlignment="Center"
                                         SelectedDate="{Binding PrioritizeThrough, Mode=TwoWay}"
                                         ToolTip="Prioritized through the night starting on this date (clear to turn off)" />
+                                    <ItemsControl
+                                        Width="190"
+                                        VerticalAlignment="Center"
+                                        ItemsSource="{Binding Filters}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button
+                                                    MinWidth="34"
+                                                    Height="22"
+                                                    Margin="0,1,3,1"
+                                                    Padding="5,0,5,0"
+                                                    Command="{Binding ToggleCommand}"
+                                                    Style="{StaticResource BackgroundButton}"
+                                                    ToolTip="{Binding ToolTip}">
+                                                    <TextBlock Text="{Binding Label}">
+                                                        <TextBlock.Style>
+                                                            <!--  A local style replaces NINA's implicit TextBlock style, so set the theme color explicitly  -->
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource ButtonForegroundBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsOn}" Value="False">
+                                                                        <Setter Property="Opacity" Value="0.5" />
+                                                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                     <ItemsControl
                                         ItemTemplate="{StaticResource AvailabilityCellTemplate}"
                                         ItemsPanel="{StaticResource HorizontalPanel}"

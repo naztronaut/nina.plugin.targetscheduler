@@ -31,5 +31,18 @@ namespace NINA.Plugin.TargetScheduler.Test.Database.Schema {
             sut.Acquired.Should().Be(0);
             sut.Accepted.Should().Be(0);
         }
+
+        [Test]
+        public void TestSkipWhilePrioritized() {
+            ExposurePlan ep = new ExposurePlan("abc123");
+            ep.SkipWhilePrioritized.Should().BeFalse();
+
+            ep.SkipWhilePrioritized = true;
+            ep.skipWhilePrioritized.Should().Be(1);
+
+            // A copy is a new plan so the skip doesn't carry over, but a move keeps it
+            ep.GetPasteCopy("def456").SkipWhilePrioritized.Should().BeFalse();
+            ep.GetPasteCopy("def456", true).SkipWhilePrioritized.Should().BeTrue();
+        }
     }
 }
