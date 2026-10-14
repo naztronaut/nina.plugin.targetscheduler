@@ -212,6 +212,12 @@ namespace NINA.Plugin.TargetScheduler.Database {
     public class SchedulerDatabaseContext : DbContext, ISchedulerDatabaseContext {
         private const int DEFAULT_BUSYLOCK_SECS = 5;
 
+        /// <summary>
+        /// Marker stored in the SQLite application_id header field once column additions (columns added if missing,
+        /// rather than by numbered migration script) have been applied to a database.
+        /// </summary>
+        public const int COLUMN_ADDITIONS_MARKER = 0x54534341; // 'TSCA'
+
         // Serializes filter cadence replacements across contexts in this process so the live planner
         // and a plan preview can't interleave their delete/insert steps and duplicate rows.
         private static readonly object filterCadenceWriteLock = new object();
@@ -1282,6 +1288,7 @@ namespace NINA.Plugin.TargetScheduler.Database {
 
                 // Apply any new migration scripts
                 int version = context.Database.SqlQuery<int>("PRAGMA user_version").First();
+                version = ResetVersionFromRemovedMigrations(context, version);
                 Dictionary<int, string> migrationScripts = GetMigrationSQL();
                 foreach (KeyValuePair<int, string> scriptEntry in migrationScripts.OrderBy(entry => entry.Key)) {
                     if (scriptEntry.Key <= version) {
@@ -1303,12 +1310,69 @@ namespace NINA.Plugin.TargetScheduler.Database {
 
                 int newVersion = context.Database.SqlQuery<int>("PRAGMA user_version").First();
 
+                // Must precede any EF queries since the entities map these columns
+                ApplyColumnAdditions(context);
+
                 // Other repairs/updates
                 RepairAndUpdate(version, newVersion, context);
 
                 if (newVersion != version) {
                     TSLogger.Info($"database updated: {version} -> {newVersion}");
                 }
+            }
+
+            /// <summary>
+            /// Columns that are added if missing, rather than by a numbered migration script.  Since they don't consume a
+            /// migration number (or change user_version), they can't collide with migration scripts added by future
+            /// releases, and a database can be moved between builds with and without them.
+            /// </summary>
+            private static readonly (string Table, string Column, string Definition)[] ColumnAdditions = {
+                ("target", "prioritizeThrough", "INTEGER"),
+                ("exposureplan", "skipWhilePrioritized", "INTEGER DEFAULT 0"),
+            };
+
+            /// <summary>
+            /// Version reached by development builds that added the ColumnAdditions columns via (since removed) migration
+            /// scripts 24 and 25, and the last upstream migration before them.
+            /// </summary>
+            private const int REMOVED_MIGRATIONS_MAX = 25;
+            private const int REMOVED_MIGRATIONS_BASE = 23;
+
+            /// <summary>
+            /// A database migrated by those development builds has a user_version (24 or 25) that would cause future
+            /// upstream migration scripts with those numbers to be skipped.  Reset it to the last upstream version.  This
+            /// only applies to an unmarked database that already has the prioritizeThrough column (which only those builds
+            /// created), so a database at 24 or 25 from an upstream release is never touched.
+            /// </summary>
+            private int ResetVersionFromRemovedMigrations(TContext context, int version) {
+                if (version <= REMOVED_MIGRATIONS_BASE || version > REMOVED_MIGRATIONS_MAX) { return version; }
+                if (GetApplicationId(context) == COLUMN_ADDITIONS_MARKER) { return version; }
+                if (!ColumnExists(context, "target", "prioritizeThrough")) { return version; }
+
+                TSLogger.Info($"resetting database version {version} -> {REMOVED_MIGRATIONS_BASE} (columns from removed development migrations are now added directly)");
+                context.Database.ExecuteSqlCommand($"PRAGMA user_version = {REMOVED_MIGRATIONS_BASE}");
+                return REMOVED_MIGRATIONS_BASE;
+            }
+
+            private void ApplyColumnAdditions(TContext context) {
+                foreach (var addition in ColumnAdditions) {
+                    if (!ColumnExists(context, addition.Table, addition.Column)) {
+                        TSLogger.Info($"adding database column {addition.Table}.{addition.Column}");
+                        context.Database.ExecuteSqlCommand($"ALTER TABLE {addition.Table} ADD COLUMN {addition.Column} {addition.Definition}");
+                    }
+                }
+
+                if (GetApplicationId(context) != COLUMN_ADDITIONS_MARKER) {
+                    context.Database.ExecuteSqlCommand($"PRAGMA application_id = {COLUMN_ADDITIONS_MARKER}");
+                }
+            }
+
+            private bool ColumnExists(TContext context, string table, string column) {
+                return context.Database.SqlQuery<int>($"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'").First() > 0;
+            }
+
+            private int GetApplicationId(TContext context) {
+                return context.Database.SqlQuery<int>("PRAGMA application_id").First();
             }
 
             private bool DatabaseExists(TContext context) {
