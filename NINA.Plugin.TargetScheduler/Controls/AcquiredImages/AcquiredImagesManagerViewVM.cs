@@ -43,6 +43,8 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
             RefreshTableCommand = new AsyncRelayCommand(RefreshTable);
             CsvOutputCommand = new AsyncRelayCommand(CsvOutput);
             PurgeCommand = new AsyncRelayCommand(PurgeRecords);
+            RejectSelectedCommand = new AsyncRelayCommand(RejectSelected);
+            MoveRejectedSelectedCommand = new AsyncRelayCommand(MoveRejectedSelected);
             PurgeTargetChoices = GetPurgeTargetChoices();
 
             InitializeCriteria();
@@ -445,6 +447,69 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
             }
         }
 
+        public ICommand RejectSelectedCommand { get; private set; }
+
+        private Task<bool> RejectSelected() {
+            List<AcquiredImageVM> selectedImages = AcquiredImageCollection
+                .Where(image => image.IsSelected && image.GradingStatus != GradingStatus.Rejected.ToString())
+                .ToList();
+            if (selectedImages.Count == 0) {
+                MyMessageBox.Show("Select one or more images that are not already rejected.");
+                return Task.FromResult(true);
+            }
+
+            if (MyMessageBox.Show($"Mark {selectedImages.Count} selected image(s) as rejected?", "Reject images?", MessageBoxButton.YesNo, MessageBoxResult.No) != MessageBoxResult.Yes) {
+                return Task.FromResult(true);
+            }
+
+            int updatedCount = 0;
+            foreach (AcquiredImageVM image in selectedImages) {
+                if (image.UpdateGrading(GradingStatus.Rejected, false)) {
+                    updatedCount++;
+                }
+            }
+
+            int failedCount = selectedImages.Count - updatedCount;
+            TSLogger.Info($"manually rejected {updatedCount} selected acquired images; failed={failedCount}");
+            MyMessageBox.Show(failedCount == 0
+                ? $"Marked {updatedCount} image(s) as rejected. Accepted counts were updated."
+                : $"Marked {updatedCount} image(s) as rejected; {failedCount} could not be updated. See the log for details.");
+            return Task.FromResult(true);
+        }
+
+        public ICommand MoveRejectedSelectedCommand { get; private set; }
+
+        private Task<bool> MoveRejectedSelected() {
+            List<AcquiredImageVM> selectedImages = AcquiredImageCollection
+                .Where(image => image.IsSelected && image.GradingStatus == GradingStatus.Rejected.ToString())
+                .ToList();
+            if (selectedImages.Count == 0) {
+                MyMessageBox.Show("Select one or more rejected images to move.");
+                return Task.FromResult(true);
+            }
+
+            if (MyMessageBox.Show($"Move {selectedImages.Count} selected rejected image(s) into their rejected folders?", "Move rejected images?", MessageBoxButton.YesNo, MessageBoxResult.No) != MessageBoxResult.Yes) {
+                return Task.FromResult(true);
+            }
+
+            int movedCount = 0;
+            foreach (AcquiredImageVM image in selectedImages) {
+                string fileName = image.FileName;
+                string directory = string.IsNullOrWhiteSpace(fileName) ? null : Path.GetDirectoryName(fileName);
+                if (directory != null && Utils.MoveFile(fileName, Path.Combine(directory, ImageGrader.REJECTED_SUBDIR))) {
+                    image.IsSelected = false;
+                    movedCount++;
+                }
+            }
+
+            int failedCount = selectedImages.Count - movedCount;
+            TSLogger.Info($"moved {movedCount} selected rejected acquired images; failed={failedCount}");
+            MyMessageBox.Show(failedCount == 0
+                ? $"Moved {movedCount} rejected image(s)."
+                : $"Moved {movedCount} rejected image(s); {failedCount} could not be moved. See the log for details.");
+            return Task.FromResult(true);
+        }
+
         private AcquiredImageCollection acquiredImageCollection;
 
         public AcquiredImageCollection AcquiredImageCollection {
@@ -672,6 +737,16 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
         public string GradingStatus { get { return acquiredImage.GradingStatus.ToString(); } }
         public string RejectReason { get { return acquiredImage.RejectReason; } }
 
+        private bool isSelected;
+
+        public bool IsSelected {
+            get => isSelected;
+            set {
+                isSelected = value;
+                RaisePropertyChanged(nameof(IsSelected));
+            }
+        }
+
         public string FileName { get { return acquiredImage.Metadata.FileName; } }
         public string ExposureDuration { get { return Utils.FormatDbl(acquiredImage.Metadata.ExposureDuration); } }
 
@@ -749,15 +824,20 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
         public ICommand UpdateGradingCommand { get; private set; }
 
         private void UpdateGrading(object obj) {
-            GradingStatus oldStatus = acquiredImage.GradingStatus;
-            GradingStatus newStatus;
-            Enum.TryParse(obj.ToString(), out newStatus);
+            if (Enum.TryParse(obj?.ToString(), out GradingStatus newStatus)) {
+                UpdateGrading(newStatus);
+            }
+        }
 
+        public bool UpdateGrading(GradingStatus newStatus, bool showError = true) {
+            GradingStatus oldStatus = acquiredImage.GradingStatus;
             using (var context = database.GetContext()) {
                 Project project = context.GetProjectOnly(acquiredImage.ProjectId);
                 if (project == null || !project.EnableGrader) {
-                    MyMessageBox.Show("Associated project has grading disabled or project cannot be found (perhaps it was removed?).", "Oops");
-                    return;
+                    if (showError) {
+                        MyMessageBox.Show("Associated project has grading disabled or project cannot be found (perhaps it was removed?).", "Oops");
+                    }
+                    return false;
                 }
 
                 AcquiredImage ai = context.ManualUpdateGrading(acquiredImage, oldStatus, newStatus);
@@ -766,8 +846,11 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
                     GradingStatusValue = (int)newStatus;
                     RaiseAllPropertiesChanged();
                     TSLogger.Debug($"updated grading status from {oldStatus} to {newStatus} for record ai={acquiredImage.Id}");
+                    return true;
                 }
             }
+
+            return false;
         }
 
         private bool CanCmdExec(object obj) => true;

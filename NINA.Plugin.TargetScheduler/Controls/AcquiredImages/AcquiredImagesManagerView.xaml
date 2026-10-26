@@ -274,6 +274,17 @@
                    FontStyle="Italic"
                    Text="Click the table headers to sort, select a row to show details" />
 
+        <StackPanel Margin="12,0,0,8"
+                    Orientation="Horizontal">
+            <Button Margin="0,0,8,0"
+                    Command="{Binding RejectSelectedCommand}"
+                    Content="Reject Selected"
+                    ToolTip="Mark checked images as rejected and update their accepted counts" />
+            <Button Command="{Binding MoveRejectedSelectedCommand}"
+                    Content="Move Rejected to Folder"
+                    ToolTip="Move checked rejected images into a rejected subfolder" />
+        </StackPanel>
+
         <Grid Height="350"
               Visibility="{Binding TableLoading, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}">
             <ninactrl:LoadingControl MaxWidth="100"
@@ -639,6 +650,11 @@
             </DataGrid.RowDetailsTemplate>
 
             <DataGrid.Columns>
+
+                <DataGridCheckBoxColumn Width="55"
+                                        Header="Select"
+                                        IsReadOnly="False"
+                                        Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                 <DataGridTemplateColumn Width="*">
                     <DataGridTemplateColumn.Header>
