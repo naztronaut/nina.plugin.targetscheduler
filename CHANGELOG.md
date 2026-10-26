@@ -1,5 +1,8 @@
 # Target Scheduler
 
+## 5.9.6.1 - 2026-10-25
+* Fixed an issue with profile loading deadlocks
+
 ## 5.9.6.0 - 2026-07-04
 * Fixed a problem with filter cadence table corruption
 
