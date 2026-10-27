@@ -274,16 +274,27 @@
                    FontStyle="Italic"
                    Text="Click the table headers to sort, select a row to show details" />
 
-        <StackPanel Margin="12,0,0,8"
-                    Orientation="Horizontal">
+        <WrapPanel Margin="12,0,0,8">
             <Button Margin="0,0,8,0"
-                    Command="{Binding RejectSelectedCommand}"
+                    Command="{Binding DataContext.SelectAllCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                    Content="Select All"
+                    ToolTip="Select all images currently shown in the table" />
+            <Button Margin="0,0,8,0"
+                    Command="{Binding DataContext.SelectNoneCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                    Content="Select None"
+                    ToolTip="Clear image selections" />
+            <Button Margin="0,0,8,0"
+                    Command="{Binding DataContext.AcceptSelectedCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                    Content="Accept Selected"
+                    ToolTip="Mark checked images as accepted and update their accepted counts" />
+            <Button Margin="0,0,8,0"
+                    Command="{Binding DataContext.RejectSelectedCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                     Content="Reject Selected"
                     ToolTip="Mark checked images as rejected and update their accepted counts" />
-            <Button Command="{Binding MoveRejectedSelectedCommand}"
+            <Button Command="{Binding DataContext.MoveRejectedSelectedCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                     Content="Move Rejected to Folder"
                     ToolTip="Move checked rejected images into a rejected subfolder" />
-        </StackPanel>
+        </WrapPanel>
 
         <Grid Height="350"
               Visibility="{Binding TableLoading, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}">
@@ -651,10 +662,57 @@
 
             <DataGrid.Columns>
 
-                <DataGridCheckBoxColumn Width="55"
-                                        Header="Select"
-                                        IsReadOnly="False"
-                                        Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <DataGridTemplateColumn Width="55">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="Select" />
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      PreviewMouseLeftButtonDown="SelectionCheckBox_PreviewMouseLeftButtonDown">
+                                <CheckBox.Style>
+                                    <Style TargetType="{x:Type CheckBox}">
+                                        <Setter Property="Width" Value="18" />
+                                        <Setter Property="Height" Value="18" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type CheckBox}">
+                                                    <Border x:Name="SelectionBox"
+                                                            Background="Transparent"
+                                                            BorderBrush="{TemplateBinding Foreground}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="2">
+                                                        <Path x:Name="CheckMark"
+                                                              Data="M 2,7 L 6,11 L 14,3"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"
+                                                              Stroke="{StaticResource ButtonForegroundBrush}"
+                                                              StrokeThickness="2"
+                                                              Visibility="Collapsed" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="SelectionBox" Property="Background" Value="{StaticResource PrimaryBrush}" />
+                                                            <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="SelectionBox" Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter TargetName="SelectionBox" Property="Opacity" Value="0.5" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </CheckBox.Style>
+                            </CheckBox>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <DataGridTemplateColumn Width="*">
                     <DataGridTemplateColumn.Header>

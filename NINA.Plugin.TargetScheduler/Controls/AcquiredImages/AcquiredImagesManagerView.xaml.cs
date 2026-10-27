@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 
 namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
 
@@ -9,6 +10,14 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
 
         public AcquiredImagesManagerView() {
             InitializeComponent();
+        }
+
+        private void SelectionCheckBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
+            if (sender is CheckBox checkBox) {
+                checkBox.Focus();
+                checkBox.IsChecked = !checkBox.IsChecked.GetValueOrDefault();
+                e.Handled = true;
+            }
         }
 
         private void columnHeader_Click(object sender, RoutedEventArgs e) {

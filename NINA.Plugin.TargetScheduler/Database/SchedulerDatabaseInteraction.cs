@@ -37,9 +37,10 @@ namespace NINA.Plugin.TargetScheduler.Database {
                 return;
             }
 
+            string newFileName = null;
             try {
-                string renamed = $"{DATABASE_BASENAME}-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}-backup.{DATABASE_SUFFIX}";
-                string newFileName = Path.Combine(Common.PLUGIN_HOME, renamed);
+                string renamed = $"{DATABASE_BASENAME}-{DateTime.Now:yyyy-MM-dd-HH-mm-ss-fff}-{Guid.NewGuid():N}-backup.{DATABASE_SUFFIX}";
+                newFileName = Path.Combine(Common.PLUGIN_HOME, renamed);
                 TSLogger.Debug($"backing up Target Scheduler database to {newFileName}");
                 File.Copy(sourceFile, newFileName);
 
@@ -58,8 +59,9 @@ namespace NINA.Plugin.TargetScheduler.Database {
                     File.Delete(filename);
                 }
             } catch (Exception e) {
-                TSLogger.Error($"failed to backup database: {e.Message}:{Environment.NewLine}{e.StackTrace}");
-                Notification.ShowWarning($"Failed to backup Target Scheduler database, see log for errors");
+                TSLogger.Error($"failed to back up database from {sourceFile} to {newFileName ?? Common.PLUGIN_HOME}", e);
+                string logDirectory = Path.Combine(Common.PLUGIN_HOME, "Logs");
+                Notification.ShowWarning($"Failed to back up Target Scheduler database: {e.Message}. See {logDirectory} for details.");
             }
         }
     }

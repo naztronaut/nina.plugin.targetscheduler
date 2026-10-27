@@ -43,6 +43,9 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
             RefreshTableCommand = new AsyncRelayCommand(RefreshTable);
             CsvOutputCommand = new AsyncRelayCommand(CsvOutput);
             PurgeCommand = new AsyncRelayCommand(PurgeRecords);
+            SelectAllCommand = new RelayCommandParam(_ => SelectAll());
+            SelectNoneCommand = new RelayCommandParam(_ => SelectNone());
+            AcceptSelectedCommand = new AsyncRelayCommand(AcceptSelected);
             RejectSelectedCommand = new AsyncRelayCommand(RejectSelected);
             MoveRejectedSelectedCommand = new AsyncRelayCommand(MoveRejectedSelected);
             PurgeTargetChoices = GetPurgeTargetChoices();
@@ -447,33 +450,60 @@ namespace NINA.Plugin.TargetScheduler.Controls.AcquiredImages {
             }
         }
 
+        public ICommand SelectAllCommand { get; private set; }
+
+        private void SelectAll() {
+            foreach (AcquiredImageVM image in AcquiredImageCollection) {
+                image.IsSelected = true;
+            }
+        }
+
+        public ICommand SelectNoneCommand { get; private set; }
+
+        private void SelectNone() {
+            foreach (AcquiredImageVM image in AcquiredImageCollection) {
+                image.IsSelected = false;
+            }
+        }
+
+        public ICommand AcceptSelectedCommand { get; private set; }
+
+        private Task<bool> AcceptSelected() {
+            return UpdateSelectedGrading(GradingStatus.Accepted);
+        }
+
         public ICommand RejectSelectedCommand { get; private set; }
 
         private Task<bool> RejectSelected() {
+            return UpdateSelectedGrading(GradingStatus.Rejected);
+        }
+
+        private Task<bool> UpdateSelectedGrading(GradingStatus newStatus) {
+            string action = newStatus == GradingStatus.Accepted ? "accepted" : "rejected";
             List<AcquiredImageVM> selectedImages = AcquiredImageCollection
-                .Where(image => image.IsSelected && image.GradingStatus != GradingStatus.Rejected.ToString())
+                .Where(image => image.IsSelected && image.GradingStatus != newStatus.ToString())
                 .ToList();
             if (selectedImages.Count == 0) {
-                MyMessageBox.Show("Select one or more images that are not already rejected.");
+                MyMessageBox.Show($"Select one or more images that are not already {action}.");
                 return Task.FromResult(true);
             }
 
-            if (MyMessageBox.Show($"Mark {selectedImages.Count} selected image(s) as rejected?", "Reject images?", MessageBoxButton.YesNo, MessageBoxResult.No) != MessageBoxResult.Yes) {
+            if (MyMessageBox.Show($"Mark {selectedImages.Count} selected image(s) as {action}?", $"Mark images {action}?", MessageBoxButton.YesNo, MessageBoxResult.No) != MessageBoxResult.Yes) {
                 return Task.FromResult(true);
             }
 
             int updatedCount = 0;
             foreach (AcquiredImageVM image in selectedImages) {
-                if (image.UpdateGrading(GradingStatus.Rejected, false)) {
+                if (image.UpdateGrading(newStatus, false)) {
                     updatedCount++;
                 }
             }
 
             int failedCount = selectedImages.Count - updatedCount;
-            TSLogger.Info($"manually rejected {updatedCount} selected acquired images; failed={failedCount}");
+            TSLogger.Info($"manually marked {updatedCount} selected acquired images {action}; failed={failedCount}");
             MyMessageBox.Show(failedCount == 0
-                ? $"Marked {updatedCount} image(s) as rejected. Accepted counts were updated."
-                : $"Marked {updatedCount} image(s) as rejected; {failedCount} could not be updated. See the log for details.");
+                ? $"Marked {updatedCount} image(s) as {action}. Accepted counts were updated."
+                : $"Marked {updatedCount} image(s) as {action}; {failedCount} could not be updated. See the log for details.");
             return Task.FromResult(true);
         }
 
